@@ -1,29 +1,44 @@
-module PhiVty.Ui
+module PhiVty.UI
        (
-       runPhiUi
+       UIData,
+       initialPhiUI,
+       runPhiUI,
+       setMap
        ) where
 
 import Graphics.Vty.Widgets.All
 import qualified Data.Text as T
+import Control.Concurrent
 
+data UIData = UIData {
+            ui_collection :: Collection,
+            ui_maptext :: Widget FormattedText
+            }
 
-runPhiUi :: IO ()
-runPhiUi = do
+initialPhiUI :: IO UIData
+initialPhiUI = do
   e <- editWidget
   -- tentative
   e `onActivate` error "exit"
   fg <- newFocusGroup
   _ <- addToFocusGroup fg e
   mes <- plainText (T.pack "hi") >>= centered
-  mp <- plainText (T.pack $ makeMapString initialMapList [((3, 3), "m")]) >>= bordered >>= centered
+  maptext <- plainText (T.pack $ makeMapString initialMapList [((3, 3), "m")])
+  mp <- bordered maptext >>= centered
   main_box <- (return mp <++> return mes) <--> (return e)
   c <- newCollection
   _ <- addToCollection c main_box fg
-  runUi c defaultContext
-  return ()
+  return $ UIData {ui_collection = c, ui_maptext = maptext}
+
+runPhiUI :: UIData -> IO ()
+runPhiUI uidata = runUi (ui_collection uidata) defaultContext
+
+setMap :: UIData -> String -> [((Int, Int), String)] -> IO ()
+setMap uidata str chara_list =
+  schedule $ setText (ui_maptext uidata) (T.pack $ makeMapString str chara_list)
 
 initialMapList :: String
-initialMapList = "????????>% o=??#|{I@??    H??_T:+/????????"
+initialMapList = "????????>% o=??#|{I@??    H??_T:+/??_:::H????????"
 
 mapSize :: Int
 mapSize = 7
