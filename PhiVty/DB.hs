@@ -1,11 +1,12 @@
-{-# LANGUAGE RankNTypes, ExistentialQuantification, ImpredicativeTypes #-}
+{-# LANGUAGE Rank2Types, ExistentialQuantification #-}
 
 module PhiVty.DB (
                  runDB,
+                 dbprint,
                  initialDB,
                  getRandomInt,
                  updateTime,
-                 readTime
+                 getTime
           ) where
 
 import Control.Monad.ST
@@ -13,31 +14,44 @@ import Control.Monad.State
 import Data.STRef
 import System.Random
 
-data DB a = DB {internalRunDB :: forall s. DBContext s -> ST s a}
 
-instance Monad DB where
+data DB m a = DB {internalRunDB :: forall s. DBContext s m -> ST s a}
+
+instance Monad (DB l) where
   return a = DB $ const $ return a
   k >>= m = DB $ \context -> do
     result <- internalRunDB k context 
     internalRunDB (m result) context
 
-runDB :: DBData -> DB a -> (a, DBData)
+runDB :: (Monad m) => DBData m -> DB m a -> m (a, DBData m)
 runDB db dbAction =
-  runST $ do
-    context <- newSTRef db
-    result <- internalRunDB dbAction $ context
-    new_db <- readSTRef context
-    return (result, new_db)
+  let (result, next_db) = runST $ do {
+    context <- newSTRef db;
+    result <- internalRunDB dbAction $ context;
+    next_db <- readSTRef context;
+    return (result, next_db) }
+  in
+  let messagelist = reverse $ db_messagelist next_db in
+  let result_db = next_db {db_messagelist = []} in
+  do {
+     mapM_ (db_printfunc result_db) messagelist;
+     return (result, result_db)
+     }
 
-type DBContext s = STRef s DBData
+dbprint :: String -> DB m ()
+dbprint message =
+  DB $ \st -> modifySTRef st (\db_data -> db_data {db_messagelist = message : db_messagelist db_data})
 
-data DBData = DBData {
+type DBContext s m = STRef s (DBData m)
+
+data DBData m = DBData {
   db_time :: Int,
   db_randomgen :: StdGen,
-  db_messagelist :: [String]
+  db_messagelist :: [String],
+  db_printfunc :: (Monad m) => String -> m ()
 }
 
-getRandomInt :: DB Int
+getRandomInt :: DB m Int
 getRandomInt =
   DB $ \st -> do
     db_data <- readSTRef st
@@ -45,16 +59,17 @@ getRandomInt =
     writeSTRef st $ db_data {db_randomgen = next_gen}
     return value
 
-initialDB :: Int -> DBData
-initialDB random_gen = DBData {
+initialDB :: Int -> (String -> m ()) -> DBData m
+initialDB random_gen print_func = DBData {
   db_time = 0,
   db_randomgen = mkStdGen random_gen,
-  db_messagelist = [] }
+  db_messagelist = [],
+  db_printfunc = print_func}
 
-updateTime :: DB ()
+updateTime :: DB m ()
 updateTime =
   DB $ \st -> modifySTRef st (\db_data -> db_data {db_time = db_time db_data + 1})
 
-readTime :: DB Int
-readTime =
+getTime :: DB m Int
+getTime =
   DB $ \st -> readSTRef st >>= (\x -> return $ db_time x)
