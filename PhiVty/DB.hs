@@ -5,8 +5,6 @@ module PhiVty.DB (
                  dbprint,
                  initialDB,
                  getRandomInt,
-                 updateTime,
-                 getTime
           ) where
 
 import Control.Monad.ST
@@ -45,7 +43,6 @@ dbprint message =
 type DBContext s m = STRef s (DBData m)
 
 data DBData m = DBData {
-  db_time :: Int,
   db_randomgen :: StdGen,
   db_messagelist :: [String],
   db_printfunc :: (Monad m) => String -> m ()
@@ -61,15 +58,6 @@ getRandomInt =
 
 initialDB :: Int -> (String -> m ()) -> DBData m
 initialDB random_gen print_func = DBData {
-  db_time = 0,
   db_randomgen = mkStdGen random_gen,
   db_messagelist = [],
   db_printfunc = print_func}
-
-updateTime :: DB m ()
-updateTime =
-  DB $ \st -> modifySTRef st (\db_data -> db_data {db_time = db_time db_data + 1})
-
-getTime :: DB m Int
-getTime =
-  DB $ \st -> readSTRef st >>= (\x -> return $ db_time x)
