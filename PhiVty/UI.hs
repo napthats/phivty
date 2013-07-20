@@ -3,7 +3,8 @@ module PhiVty.UI
        UIData,
        initialPhiUI,
        runPhiUI,
-       setMap
+       setMap,
+       setMessage
        ) where
 
 import Graphics.Vty.Widgets.All
@@ -12,7 +13,8 @@ import Control.Concurrent
 
 data UIData = UIData {
             ui_collection :: Collection,
-            ui_maptext :: Widget FormattedText
+            ui_maptext :: Widget FormattedText,
+            ui_message :: Widget FormattedText
             }
 
 initialPhiUI :: IO UIData
@@ -22,13 +24,14 @@ initialPhiUI = do
   e `onActivate` error "exit"
   fg <- newFocusGroup
   _ <- addToFocusGroup fg e
-  mes <- plainText (T.pack "hi") >>= centered
+  mes_plain <- plainText (T.pack "hi")
+  mes <- centered mes_plain
   maptext <- plainText (T.pack $ makeMapString initialMapList [((3, 3), "m")])
   mp <- bordered maptext >>= centered
   main_box <- (return mp <++> return mes) <--> (return e)
   c <- newCollection
   _ <- addToCollection c main_box fg
-  return $ UIData {ui_collection = c, ui_maptext = maptext}
+  return $ UIData {ui_collection = c, ui_maptext = maptext, ui_message = mes_plain}
 
 runPhiUI :: UIData -> IO ()
 runPhiUI uidata = runUi (ui_collection uidata) defaultContext
@@ -36,6 +39,10 @@ runPhiUI uidata = runUi (ui_collection uidata) defaultContext
 setMap :: UIData -> String -> [((Int, Int), String)] -> IO ()
 setMap uidata str chara_list =
   schedule $ setText (ui_maptext uidata) (T.pack $ makeMapString str chara_list)
+
+setMessage :: UIData -> String -> IO ()
+setMessage uidata str =
+  schedule $ setText (ui_message uidata) (T.pack $ str)
 
 initialMapList :: String
 initialMapList = "????????>% o=??#|{I@??    H??_T:+/??_:::H????????"
