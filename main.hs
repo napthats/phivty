@@ -6,6 +6,9 @@ import Control.Monad
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM
 import Data.List
+import Codec.Text.IConv
+import Data.ByteString.Lazy.Char8 (pack, unpack)
+import Codec.Binary.UTF8.String
 
 main :: IO ()
 main = do 
@@ -14,7 +17,7 @@ main = do
     let new_db = initialDB 0 $ setMessage uidata
     tchan <- atomically newTChan
     let recv_handler mes =
-          atomically $ writeTChan tchan mes
+          atomically $ writeTChan tchan (decodeString . unpack . convert "SJIS" "UTF-8" . pack $ mes)
     soc <- connect "49.212.144.158" 20017 recv_handler
     send "#open guest3" soc
     send "#map-iv 1" soc

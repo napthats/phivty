@@ -42,10 +42,6 @@ dbprint :: String -> DB m ()
 dbprint message =
   DB $ \st -> modifySTRef st (\db_data -> db_data {db_messagelist = message : db_messagelist db_data})
 
-dbprint :: String -> DB m ()
-dbprint message =
-  DB $ \st -> modifySTRef st (\db_data -> db_data {db_messagelist = message : db_messagelist db_data})
-
 type DBContext s m = STRef s (DBData m)
 
 data DBData m = DBData {
