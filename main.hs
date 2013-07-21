@@ -1,8 +1,8 @@
 import PhiVty.UI
 import PhiVty.DB
 import PhiVty.Socket
+import PhiVty.Protocol
 import Control.Concurrent
-import Control.Monad
 import Control.Monad.Trans
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM
@@ -15,7 +15,7 @@ import Codec.Binary.UTF8.String
 main :: IO ()
 main = do 
   uidata <- initialPhiUI
-  forkIO $ do
+  _ <- forkIO $ do
     let new_db = initialDB 0
     tchan <- atomically newTChan
     let recv_handler mes =
@@ -27,11 +27,18 @@ main = do
     send "#version-cli 05103010" soc
     let loop db = do
           new_mes <- atomically $ readTChan tchan
-          (_, next_db) <- runDB db $ do
-            old_mes_list <- getMessageLog
-            let new_mes_list = new_mes : old_mes_list
-            lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
-            setMessageLog new_mes_list
-          loop next_db
+          case parse new_mes of
+            NormalMessage n_mes -> do
+              (_, next_db) <- runDB db $ do
+                old_mes_list <- getMessageLog
+                let new_mes_list = n_mes : old_mes_list
+                lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
+                setMessageLog new_mes_list
+              loop next_db
+            Map m_mes -> do
+              (_, next_db) <- runDB db $ do
+                lift $ setMap uidata m_mes []
+              loop next_db
+            Unknown -> loop db
     loop new_db
   runPhiUI uidata
