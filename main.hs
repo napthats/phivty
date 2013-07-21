@@ -14,13 +14,14 @@ import Codec.Binary.UTF8.String
 
 main :: IO ()
 main = do 
-  uidata <- initialPhiUI
+  tchan <- atomically newTChan
+  let recv_handler mes =
+        atomically $ writeTChan tchan (decodeString . unpack . convert "SJIS" "UTF-8" . pack $ mes)
+  soc <- connect "49.212.144.158" 20017 recv_handler
+  uidata <- initialPhiUI $ \mes ->
+    if mes == ":exit" then error "exit" else send mes soc
   _ <- forkIO $ do
     let new_db = initialDB 0
-    tchan <- atomically newTChan
-    let recv_handler mes =
-          atomically $ writeTChan tchan (decodeString . unpack . convert "SJIS" "UTF-8" . pack $ mes)
-    soc <- connect "49.212.144.158" 20017 recv_handler
     send "#open guest3" soc
     send "#map-iv 1" soc
     send "#status-iv 1" soc
@@ -36,9 +37,8 @@ main = do
                 setMessageLog new_mes_list
               loop next_db
             Map m_mes -> do
-              (_, next_db) <- runDB db $ do
-                lift $ setMap uidata m_mes []
-              loop next_db
+              setMap uidata m_mes []
+              loop db
             Unknown -> loop db
     loop new_db
   runPhiUI uidata

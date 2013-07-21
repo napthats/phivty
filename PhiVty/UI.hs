@@ -9,7 +9,6 @@ module PhiVty.UI
 
 import Graphics.Vty.Widgets.All
 import qualified Data.Text as T
-import Control.Concurrent
 
 data UIData = UIData {
             ui_collection :: Collection,
@@ -17,11 +16,13 @@ data UIData = UIData {
             ui_message :: Widget FormattedText
             }
 
-initialPhiUI :: IO UIData
-initialPhiUI = do
+initialPhiUI :: (String -> IO ()) -> IO UIData
+initialPhiUI inputHandler = do
   e <- editWidget
   -- tentative
-  e `onActivate` error "exit"
+  e `onActivate` \this -> do
+    txt <- getEditText this
+    inputHandler $ T.unpack txt
   fg <- newFocusGroup
   _ <- addToFocusGroup fg e
   mes_plain <- plainText (T.pack "hi")
