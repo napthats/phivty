@@ -2,64 +2,62 @@
 
 module PhiVty.DB (
                  runDB,
-                 dbprint,
                  initialDB,
                  getRandomInt,
                  getMessageLog,
                  setMessageLog,
+                 DB(),
           ) where
 
-import Control.Monad.ST
+import Control.Monad.ST.Trans
 import Control.Monad.State
-import Data.STRef
 import System.Random
 
+modifySTRef :: Monad m => STRef s a -> (a -> a) -> STT s m ()
+modifySTRef str func = do
+  x <- readSTRef str
+  writeSTRef str (func x)
 
-data DB m a = DB {internalRunDB :: forall s. DBContext s m -> ST s a}
+data DB m a = DB {internalRunDB :: forall s. DBContext s -> STT s m a}
 
-instance Monad (DB l) where
+instance (Monad l) => Monad (DB l) where
   return a = DB $ const $ return a
   k >>= m = DB $ \context -> do
     result <- internalRunDB k context 
     internalRunDB (m result) context
 
-runDB :: (Monad m) => DBData m -> DB m a -> m (a, DBData m)
-runDB db dbAction =
-  let (result, next_db) = runST $ do {
+instance MonadTrans DB where
+  lift c =
+    DB $ \st -> lift c
+
+runDB :: (Monad m) => DBData -> DB m a -> m (a, DBData)
+runDB db dbAction = do
+  (result, next_db) <- runST $ do {
     context <- newSTRef db;
     result <- internalRunDB dbAction $ context;
     next_db <- readSTRef context;
     return (result, next_db) }
-  in
-  let messagelist = reverse $ db_messagelist next_db in
-  let result_db = next_db {db_messagelist = []} in
-  do {
-     mapM_ (db_printfunc result_db) messagelist;
-     return (result, result_db)
-     }
+  let messagelist = reverse $ db_messagelist next_db
+  let result_db = next_db {db_messagelist = []}
+  return (result, result_db)
 
-dbprint :: String -> DB m ()
-dbprint message =
-  DB $ \st -> modifySTRef st (\db_data -> db_data {db_messagelist = message : db_messagelist db_data})
+type DBContext s = STRef s DBData
 
-type DBContext s m = STRef s (DBData m)
-
-data DBData m = DBData {
+data DBData = DBData {
   db_randomgen :: StdGen,
   db_messagelist :: [String],
-  db_phimessagelog :: [String],
-  db_printfunc :: (Monad m) => String -> m ()
+  db_phimessagelog :: [String]
 }
 
-getMessageLog :: DB m [String]
+getMessageLog :: Monad m => DB m [String]
 getMessageLog =
   DB $ \st -> readSTRef st >>= (\x -> return $ db_phimessagelog x)
 
-setMessageLog :: [String] -> DB m ()
+setMessageLog :: Monad m => [String] -> DB m ()
 setMessageLog mes_list =
   DB $ \st -> modifySTRef st (\db_data -> db_data {db_phimessagelog = mes_list})
 
-getRandomInt :: DB m Int
+getRandomInt :: Monad m => DB m Int
 getRandomInt =
   DB $ \st -> do
     db_data <- readSTRef st
@@ -67,9 +65,8 @@ getRandomInt =
     writeSTRef st $ db_data {db_randomgen = next_gen}
     return value
 
-initialDB :: Int -> (String -> m ()) -> DBData m
-initialDB random_gen print_func = DBData {
+initialDB :: Int -> DBData
+initialDB random_gen = DBData {
   db_randomgen = mkStdGen random_gen,
   db_messagelist = [],
-  db_phimessagelog = [],
-  db_printfunc = print_func}
+  db_phimessagelog = []}
