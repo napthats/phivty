@@ -14,36 +14,35 @@ import Codec.Binary.UTF8.String
 
 main :: IO ()
 main = do 
-  let new_db = initialDB 0
-  dbMvar <- newMVar new_db
+  let new_dbdata = initialDB 0
+  dbMVar <- newMVar $ return ()
   tchan <- atomically newTChan
   let recv_handler mes =
         atomically $ writeTChan tchan (decodeString . unpack . convert "SJIS" "UTF-8" . pack $ mes)
   soc <- connect "49.212.144.158" 20017 recv_handler
-  uidata <- initialPhiUI soc dbMvar
+  uidata <- initialPhiUI soc dbMVar
   _ <- forkIO $ do
     send "#open guest3" soc
     send "#map-iv 1" soc
     send "#status-iv 1" soc
     send "#version-cli 05103010" soc
-    let loop = do
+    let loop dbdata = do
           new_mes <- atomically $ readTChan tchan
-          db <- takeMVar dbMvar
           case parse new_mes of
             NormalMessage n_mes -> do
-              (_, next_db) <- runDB db $ do
+              db <- takeMVar dbMVar
+              (_, next_dbdata) <- runDB dbdata $ do
+                db
                 old_mes_list <- getMessageLog
                 let new_mes_list = n_mes : old_mes_list
                 lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
                 setMessageLog new_mes_list
-              putMVar dbMvar next_db
-              loop
+              putMVar dbMVar $ return ()
+              loop next_dbdata
             Map m_mes -> do
               setMap uidata m_mes []
-              putMVar dbMvar db
-              loop
+              loop dbdata
             Unknown -> do
-            putMVar dbMvar db
-            loop
-    loop
+            loop dbdata
+    loop new_dbdata
   runPhiUI uidata

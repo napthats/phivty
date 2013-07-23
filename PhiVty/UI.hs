@@ -24,19 +24,21 @@ inputHandler :: PhiSocket -> String -> IO ()
 inputHandler soc mes =
   if mes == ":exit" then error "exit" else send mes soc
 
-mapHandler :: Key -> [Modifier] -> MVar DBData -> IO ()
+mapHandler :: (Monad m) => Key -> [Modifier] -> MVar (DB m ()) -> IO ()
 mapHandler key modList dbMVar =
   case key of
     KASCII c -> do
       db <- takeMVar dbMVar
-      (_, next_db) <- runDB db $ do
-        old_mes_list <- getMessageLog
-        let new_mes_list = (":Input " ++ [c]) : old_mes_list
-        setMessageLog new_mes_list
+      let next_db =
+           do
+             db
+             old_mes_list <- getMessageLog
+             let new_mes_list = (":Input " ++ [c]) : old_mes_list
+             setMessageLog new_mes_list
       putMVar dbMVar next_db
     _ -> error "????"
 
-initialPhiUI :: PhiSocket -> MVar DBData -> IO UIData
+initialPhiUI :: (Monad m) => PhiSocket -> MVar (DB m ()) -> IO UIData
 initialPhiUI soc dbMVar = do
   e <- editWidget
   -- tentative
