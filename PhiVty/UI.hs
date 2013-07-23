@@ -11,6 +11,8 @@ import Graphics.Vty.Widgets.All
 import qualified Data.Text as T
 import Graphics.Vty.LLInput
 import PhiVty.Socket
+import PhiVty.DB
+import Control.Concurrent
 
 data UIData = UIData {
             ui_collection :: Collection,
@@ -22,14 +24,20 @@ inputHandler :: PhiSocket -> String -> IO ()
 inputHandler soc mes =
   if mes == ":exit" then error "exit" else send mes soc
 
-mapHandler :: Key -> [Modifier] -> IO ()
-mapHandler key modList =
+mapHandler :: Key -> [Modifier] -> MVar DBData -> IO ()
+mapHandler key modList dbMVar =
   case key of
-    KASCII c -> error [c]
+    KASCII c -> do
+      db <- takeMVar dbMVar
+      (_, next_db) <- runDB db $ do
+        old_mes_list <- getMessageLog
+        let new_mes_list = (":Input " ++ [c]) : old_mes_list
+        setMessageLog new_mes_list
+      putMVar dbMVar next_db
     _ -> error "????"
 
-initialPhiUI :: PhiSocket -> IO UIData
-initialPhiUI soc = do
+initialPhiUI :: PhiSocket -> MVar DBData -> IO UIData
+initialPhiUI soc dbMVar = do
   e <- editWidget
   -- tentative
   e `onActivate` \this -> do
@@ -38,7 +46,7 @@ initialPhiUI soc = do
   mes_plain <- plainText (T.pack "hi")
   mes <- centered mes_plain
   maptext <- plainText (T.pack $ makeMapString initialMapList [((3, 3), "m")])
-  maptext `onKeyPressed` \_ key mod_list -> do {mapHandler key mod_list; return True}
+  maptext `onKeyPressed` \_ key mod_list -> do {mapHandler key mod_list dbMVar; return True}
   mp <- bordered maptext >>= centered
   main_box <- (return mp <++> return mes) <--> (return e)
   fg <- newFocusGroup

@@ -7,7 +7,9 @@ module PhiVty.DB (
                  getMessageLog,
                  setMessageLog,
                  DB(),
+                 DBData(),
           ) where
+
 
 import Control.Monad.ST.Trans
 import Control.Monad.State
