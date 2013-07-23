@@ -18,8 +18,7 @@ main = do
   let recv_handler mes =
         atomically $ writeTChan tchan (decodeString . unpack . convert "SJIS" "UTF-8" . pack $ mes)
   soc <- connect "49.212.144.158" 20017 recv_handler
-  uidata <- initialPhiUI $ \mes ->
-    if mes == ":exit" then error "exit" else send mes soc
+  uidata <- initialPhiUI soc
   _ <- forkIO $ do
     let new_db = initialDB 0
     send "#open guest3" soc

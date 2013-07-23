@@ -9,6 +9,8 @@ module PhiVty.UI
 
 import Graphics.Vty.Widgets.All
 import qualified Data.Text as T
+import Graphics.Vty.LLInput
+import PhiVty.Socket
 
 data UIData = UIData {
             ui_collection :: Collection,
@@ -16,20 +18,32 @@ data UIData = UIData {
             ui_message :: Widget FormattedText
             }
 
-initialPhiUI :: (String -> IO ()) -> IO UIData
-initialPhiUI inputHandler = do
+inputHandler :: PhiSocket -> String -> IO ()
+inputHandler soc mes =
+  if mes == ":exit" then error "exit" else send mes soc
+
+mapHandler :: Key -> [Modifier] -> IO ()
+mapHandler key modList =
+  case key of
+    KASCII c -> error [c]
+    _ -> error "????"
+
+initialPhiUI :: PhiSocket -> IO UIData
+initialPhiUI soc = do
   e <- editWidget
   -- tentative
   e `onActivate` \this -> do
     txt <- getEditText this
-    inputHandler $ T.unpack txt
-  fg <- newFocusGroup
-  _ <- addToFocusGroup fg e
+    inputHandler soc $ T.unpack txt
   mes_plain <- plainText (T.pack "hi")
   mes <- centered mes_plain
   maptext <- plainText (T.pack $ makeMapString initialMapList [((3, 3), "m")])
+  maptext `onKeyPressed` \_ key mod_list -> do {mapHandler key mod_list; return True}
   mp <- bordered maptext >>= centered
   main_box <- (return mp <++> return mes) <--> (return e)
+  fg <- newFocusGroup
+  _ <- addToFocusGroup fg e
+  _ <- addToFocusGroup fg maptext
   c <- newCollection
   _ <- addToCollection c main_box fg
   return $ UIData {ui_collection = c, ui_maptext = maptext, ui_message = mes_plain}
