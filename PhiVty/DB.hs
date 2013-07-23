@@ -15,6 +15,7 @@ import Control.Monad.ST.Trans
 import Control.Monad.State
 import System.Random
 
+
 modifySTRef :: Monad m => STRef s a -> (a -> a) -> STT s m ()
 modifySTRef str func = do
   x <- readSTRef str
