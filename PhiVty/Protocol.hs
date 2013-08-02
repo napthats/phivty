@@ -5,7 +5,7 @@ module PhiVty.Protocol (
 
 
 data ServerProtocol =
-    Map String
+    Map (String, String)
   | NormalMessage String
   | Unknown
 
@@ -17,9 +17,8 @@ parse ('#':protocol) =
         then
           let (_, map_str) = splitAt 17 protocol in
           Map $ (foldl
-            (\acc ord ->
-              (map_str !! ord) : acc)
-            ""
+            (\(chip, op) ord -> (((map_str !! ord) : chip), ((map_str !! (ord + 1)) : op)))
+            ("", "")
             [96, 94..0])
         else Unknown
     _ -> Unknown

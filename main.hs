@@ -11,6 +11,7 @@ import Codec.Text.IConv
 import Data.ByteString.Lazy.Char8 (pack, unpack)
 import Codec.Binary.UTF8.String
 import PhiVty.Cdo
+import Data.Char
 
 
 main :: IO ()
@@ -56,8 +57,13 @@ main = do
                 lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
                 setMessageLog new_mes_list
               loop
-            Map m_mes -> do
-              setMap uidata m_mes []
+            Map (m_chip_string, m_op_string) -> do
+              setMap uidata m_chip_string []
+              cdo cdod $ do
+                old_mes_list <- getMessageLog
+                let new_mes_list = (concat (map show (map ord m_op_string))) : old_mes_list
+                lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
+                setMessageLog new_mes_list
               loop
             Unknown -> do
             loop
