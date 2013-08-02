@@ -19,7 +19,8 @@ main = do
   cdod <- newCdo
   tchan <- atomically newTChan
   let recv_handler mes =
-        atomically $ writeTChan tchan (decodeString . unpack . convert "SJIS" "UTF-8" . pack $ mes)
+--        atomically $ writeTChan tchan (decodeString . unpack . convert "SJIS" "UTF-8" . pack $ mes)
+        atomically $ writeTChan tchan mes
   soc <- connect "49.212.144.158" 20017 recv_handler
   uidata <- initialPhiUI soc cdod
   _ <- forkIO $ do
@@ -38,10 +39,17 @@ main = do
     send "#map-iv 1" soc
     send "#status-iv 1" soc
     send "#version-cli 05103010" soc
+    send "#ex-switch eagleeye=form" soc
+    send "#ex-map size=57" soc
+    send "#ex-map style=turn" soc
+    send "#ex-switch ex-move-recv=true" soc
+    send "#ex-switch ex-list-mode-end=true" soc
+    send "#ex-switch ex-disp-magic=false" soc
     let loop = do
           new_mes <- atomically $ readTChan tchan
           case parse new_mes of
-            NormalMessage n_mes -> do
+            NormalMessage n_mes_raw -> do
+              let n_mes = decodeString . unpack . convert "SJIS" "UTF-8" . pack $ n_mes_raw
               cdo cdod $ do
                 old_mes_list <- getMessageLog
                 let new_mes_list = n_mes : old_mes_list
