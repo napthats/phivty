@@ -17,16 +17,16 @@ import Data.Char
 main :: IO ()
 main = do 
   let new_dbdata = initialDB 0
-  cdod <- newCdo
+  c <- newCdo
   tchan <- atomically newTChan
   let recv_handler mes =
 --        atomically $ writeTChan tchan (decodeString . unpack . convert "SJIS" "UTF-8" . pack $ mes)
         atomically $ writeTChan tchan mes
   soc <- connect "49.212.144.158" 20017 recv_handler
-  uidata <- initialPhiUI soc cdod
+  uidata <- initialPhiUI soc c
   _ <- forkIO $ do
     let loop dbdata = do
-          m <- getMonad cdod
+          m <- getMonad c
           (_, next_dbdata) <- runDB dbdata $ do
             _ <- m
             return ()
@@ -46,26 +46,26 @@ main = do
     send "#ex-switch ex-move-recv=true" soc
     send "#ex-switch ex-list-mode-end=true" soc
     send "#ex-switch ex-disp-magic=false" soc
-    let loop = do
+    let loop u_mes = do
           new_mes <- atomically $ readTChan tchan
-          case parse new_mes of
+          case parse u_mes new_mes of
             NormalMessage n_mes_raw -> do
               let n_mes = decodeString . unpack . convert "SJIS" "UTF-8" . pack $ n_mes_raw
-              cdo cdod $ do
+              cdo c $ do
                 old_mes_list <- getMessageLog
                 let new_mes_list = n_mes : old_mes_list
                 lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
                 setMessageLog new_mes_list
-              loop
-            Map (m_chip_string, m_op_string) -> do
-              setMap uidata m_chip_string []
-              cdo cdod $ do
-                old_mes_list <- getMessageLog
-                let new_mes_list = (concat (map show (map ord m_op_string))) : old_mes_list
-                lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
-                setMessageLog new_mes_list
-              loop
-            Unknown -> do
-            loop
-    loop
+              loop Nothing
+            Map (m_chip_string, m_op_string, chara_list) -> do
+              setMap uidata m_chip_string chara_list
+--              cdo c $ do
+--                old_mes_list <- getMessageLog
+--                let new_mes_list = (concat (map show (map ord m_op_string))) : old_mes_list
+--                lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
+--                setMessageLog new_mes_list
+              loop Nothing
+            Unfinished u -> loop $ Just u
+            Unknown -> loop Nothing
+    loop Nothing
   runPhiUI uidata
