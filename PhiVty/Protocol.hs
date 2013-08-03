@@ -8,7 +8,7 @@ data ServerProtocol =
     Map (String, String, [((Int, Int), String)])
   | NormalMessage String
   | Unfinished ServerProtocol
-  | Unknown
+  | Unknown String
 
 --newtype Umes = ServerProtocol
 
@@ -42,8 +42,8 @@ parse u_mes ('#':protocol) =
             Nothing -> error "Invalid server protocol."
             Just x -> x
         _ ->
-          Unknown
-    _ -> Unknown
+          Unknown protocol
+    _ -> Unknown protocol
 parse _ mes =
   NormalMessage mes
 

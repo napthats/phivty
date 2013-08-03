@@ -66,6 +66,12 @@ main = do
 --                setMessageLog new_mes_list
               loop Nothing
             Unfinished u -> loop $ Just u
-            Unknown -> loop Nothing
+            Unknown mes -> do
+              cdo c $ do
+                old_mes_list <- getMessageLog
+                let new_mes_list = (':' : mes) : old_mes_list
+                lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
+                setMessageLog new_mes_list
+              loop Nothing
     loop Nothing
   runPhiUI uidata
