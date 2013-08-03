@@ -42,7 +42,8 @@ parse u_mes ('#':protocol) =
                                         Nothing -> (' ', "", [], [])
                                         Just (Map (d, m, o, l)) -> (d, m, o, l)
                                         _ -> error "Invalid server protocol." in
-          let initial = protocol !! 18 in
+          let initial_raw = protocol !! 18 in
+          let initial = if ord initial_raw > 32 && ord initial_raw < 127 then initial_raw else 'A' in
           let x = (read [protocol !! 12] :: Int) in
           let y = (read [protocol !! 14] :: Int) in
           Unfinished (Map (dir, ma, op, ((x, y), [initial]) : chara_list))
