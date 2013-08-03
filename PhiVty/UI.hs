@@ -4,6 +4,7 @@ module PhiVty.UI
        initialPhiUI,
        runPhiUI,
        setMap,
+       setMapTitle,
        setMessage,
        addMessage,
        ) where
@@ -21,7 +22,8 @@ import Control.Monad.Trans
 data UIData = UIData {
             ui_collection :: Collection,
             ui_maptext :: Widget FormattedText,
-            ui_message :: Widget FormattedText
+            ui_message :: Widget FormattedText,
+            ui_maptitle :: Widget FormattedText
             }
 
 inputHandler :: PhiSocket -> String -> IO ()
@@ -59,16 +61,20 @@ initialPhiUI soc cdod = do
     setEditText this $ T.pack ""
   mes_plain <- plainText (T.pack "hi")
   mes <- centered mes_plain
+  titletest <- plainText (T.pack " ")
+--  title <- centered titletest
+  let title = titletest
   maptext <- plainText (T.pack $ makeMapString initialMapList [((3, 3), "m")])
   maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list cdod; return True}
-  mp <- bordered maptext >>= centered
-  main_box <- (return mp <++> return mes) <--> (return e)
+--  mp <- bordered maptext >>= centered
+  mp <- bordered maptext
+  main_box <- (((return title <--> return mp) >>= centered) <++> return mes) <--> (return e)
   fg <- newFocusGroup
   _ <- addToFocusGroup fg e
   _ <- addToFocusGroup fg maptext
   c <- newCollection
   _ <- addToCollection c main_box fg
-  return $ UIData {ui_collection = c, ui_maptext = maptext, ui_message = mes_plain}
+  return $ UIData {ui_collection = c, ui_maptitle = titletest, ui_maptext = maptext, ui_message = mes_plain}
 
 runPhiUI :: UIData -> IO ()
 runPhiUI uidata = runUi (ui_collection uidata) defaultContext
@@ -76,6 +82,10 @@ runPhiUI uidata = runUi (ui_collection uidata) defaultContext
 setMap :: UIData -> String -> [((Int, Int), String)] -> IO ()
 setMap uidata str chara_list =
   schedule $ setText (ui_maptext uidata) (T.pack $ makeMapString str chara_list)
+
+setMapTitle :: UIData -> String -> IO ()
+setMapTitle uidata mes =
+  schedule $ setText (ui_maptitle uidata) (T.pack $ mes)
 
 setMessage :: UIData -> String -> IO ()
 setMessage uidata str =

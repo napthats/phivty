@@ -58,8 +58,9 @@ main = do
               let n_mes = decodeString . unpack . convert "SJIS" "UTF-8" . pack $ n_mes_raw
               addMessage uidata c n_mes
               loop Nothing
-            Map (m_chip_string, m_op_string, chara_list) -> do
+            Map (m_title, m_chip_string, m_op_string, chara_list) -> do
               setMap uidata m_chip_string chara_list
+              setMapTitle uidata [m_title]
 --              cdo c $ do
 --                old_mes_list <- getMessageLog
 --                let new_mes_list = (concat (map show (map ord m_op_string))) : old_mes_list
@@ -68,7 +69,7 @@ main = do
               loop Nothing
             Unfinished u -> loop $ Just u
             Unknown mes -> do
-              addMessage uidata c $ ':' : mes
+              addMessage uidata c $ '#' : mes
               loop Nothing
     loop Nothing
   runPhiUI uidata
