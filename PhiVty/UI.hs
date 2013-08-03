@@ -39,7 +39,7 @@ inputHandler soc mes =
   if mes == ":exit" then error "exit" else send mes soc
 
 mapHandler :: (Monad m) => PhiSocket -> Key -> [Modifier] -> Cdo (DB m ()) -> IO ()
-mapHandler soc key modList cdod =
+mapHandler soc key _ cdod =
   case key of
     KASCII '1' -> send "hit" soc
     KASCII '2' -> send "go b" soc

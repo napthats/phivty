@@ -9,7 +9,6 @@ import Network
 import System.IO
 import Control.Exception
 import Control.Concurrent
-import Prelude hiding (catch)
 
 
 data PhiSocket = PhiSocket {internalHandle :: Handle, recvThreadId :: ThreadId}
@@ -23,7 +22,7 @@ connect addr port recv_handler = withSocketsDo $ do
     sequence_ $ repeat $ do
       res <- hGetLine h
       recv_handler res
-    `catch` (\(SomeException e) -> return () )
+    `catch` (\(SomeException _) -> return () )
     `finally` do
       hClose h
   return $ PhiSocket {internalHandle = h, recvThreadId = tId}
@@ -35,4 +34,4 @@ close soc =
 send :: String -> PhiSocket -> IO ()
 send mes soc =
   hPutStrLn (internalHandle soc) mes
-  `catch` (\(SomeException e) -> return ())
+  `catch` (\(SomeException _) -> return ())

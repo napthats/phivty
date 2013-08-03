@@ -31,7 +31,7 @@ instance (Monad l) => Monad (DB l) where
 
 instance MonadTrans DB where
   lift c =
-    DB $ \st -> lift c
+    DB $ \_ -> lift c
 
 runDB :: (Monad m) => DBData -> DB m a -> m (a, DBData)
 runDB db dbAction = do
@@ -40,7 +40,7 @@ runDB db dbAction = do
     result <- internalRunDB dbAction $ context;
     next_db <- readSTRef context;
     return (result, next_db) }
-  let messagelist = reverse $ db_messagelist next_db
+--  let messagelist = reverse $ db_messagelist next_db
   let result_db = next_db {db_messagelist = []}
   return (result, result_db)
 
