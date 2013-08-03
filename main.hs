@@ -12,17 +12,21 @@ import Data.ByteString.Lazy.Char8 (pack, unpack)
 import Codec.Binary.UTF8.String
 import PhiVty.Cdo
 import Data.Char
+import System.Environment
 
 
 main :: IO ()
 main = do 
+  args <- getArgs
+  if length args /= 3 then error "main ip port id" else do
   let new_dbdata = initialDB 0
   c <- newCdo
   tchan <- atomically newTChan
   let recv_handler mes =
 --        atomically $ writeTChan tchan (decodeString . unpack . convert "SJIS" "UTF-8" . pack $ mes)
         atomically $ writeTChan tchan mes
-  soc <- connect "49.212.144.158" 20017 recv_handler
+  --soc <- connect "49.212.144.158" 20017 recv_handler
+  soc <- connect (args !! 0) (read (args !! 1) :: Int) recv_handler
   uidata <- initialPhiUI soc c
   _ <- forkIO $ do
     let loop dbdata = do
@@ -36,7 +40,8 @@ main = do
           loop next_dbdata
     loop new_dbdata
   _ <- forkIO $ do
-    send "#open guest3" soc
+--    send "#open guest3" soc
+    send ("#open " ++ (args !! 2)) soc
     send "#map-iv 1" soc
     send "#status-iv 1" soc
     send "#version-cli 05103010" soc
