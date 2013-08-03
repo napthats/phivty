@@ -59,7 +59,7 @@ main = do
               addMessage uidata c n_mes
               loop Nothing
             Map (m_dir, m_chip_string, m_op_string, chara_list) -> do
-              setMap uidata m_chip_string chara_list
+              setMap uidata m_chip_string m_op_string chara_list
               setDirection uidata [m_dir]
 --              cdo c $ do
 --                old_mes_list <- getMessageLog

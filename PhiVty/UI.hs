@@ -20,7 +20,6 @@ import Graphics.Vty.Attributes
 import PhiVty.Socket
 import PhiVty.DB
 import PhiVty.Cdo
-import Data.List
 import Data.List.Split
 import Control.Monad.Trans
 import Data.IORef
@@ -72,7 +71,7 @@ initialPhiUI soc cdod = do
   mes <- centered mes_plain
   titletest <- plainText (T.pack " ")
   title <- hCentered titletest
-  maptext <- plainText (T.pack $ makeMapString initialMapList [((3, 3), "m")])
+  maptext <- plainText (T.pack $ makeMapString initialMapList initialMapOptionList [((3, 3), "m")])
   maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list cdod; return True}
   mp <- bordered maptext >>= hCentered
   main_box <- (((return title <--> return mp) >>= centered) <++> return mes) <--> (return e)
@@ -87,9 +86,9 @@ initialPhiUI soc cdod = do
 runPhiUI :: UIData -> IO ()
 runPhiUI uidata = runUi (ui_collection uidata) defaultContext
 
-setMap :: UIData -> String -> [((Int, Int), String)] -> IO ()
-setMap uidata str chara_list =
-  schedule $ setText (ui_maptext uidata) (T.pack $ makeMapString str chara_list)
+setMap :: UIData -> String -> [(Int, Int,Int, Int)] -> [((Int, Int), String)] -> IO ()
+setMap uidata str op_list chara_list =
+  schedule $ setText (ui_maptext uidata) (T.pack $ makeMapString str op_list chara_list)
 
 setMapTitle :: UIData -> String -> IO ()
 setMapTitle uidata mes =
@@ -121,7 +120,7 @@ setMessage uidata str_list = do
 
 parsePhiTags :: String -> [(T.Text, Attr)]
 parsePhiTags str = _parse def_attr str
-  where _parse attr str =
+  where _parse attr _str =
           let tag2Attr tag =
                case splitOn "=" (drop 2 $ take (length tag - 2) tag) of
                  ["color", color] ->
@@ -142,8 +141,8 @@ parsePhiTags str = _parse def_attr str
                      _ -> def_attr
                  _ -> def_attr
                in
-          case matchRegexAll (mkRegex "/[*][^*]*[*]/") str of
-            Nothing -> [(T.pack (str ++ "\n"), attr)]
+          case matchRegexAll (mkRegex "/[*][^*]*[*]/") _str of
+            Nothing -> [(T.pack (_str ++ "\n"), attr)]
             Just (before_str, tag, after_str, _) -> (T.pack before_str, attr) : (_parse (tag2Attr tag) after_str)
 
 
@@ -158,18 +157,21 @@ addMessage uidata c mes = cdo c $ do
 initialMapList :: String
 initialMapList = "????????>% o=??#|{I@??    H??_T:+/??_:::H????????"
 
+initialMapOptionList :: [(Int, Int, Int, Int)]
+initialMapOptionList = replicate 49 (0,0,0,0)
+
 mapSize :: Int
 mapSize = 7
 
-makeMapString :: String -> [((Int, Int), String)] -> String
-makeMapString map_list chara_list =
+makeMapString :: String -> [(Int, Int, Int, Int)] -> [((Int, Int), String)] -> String
+makeMapString map_list op_list chara_list =
   let get_chara (x, y) default_chip ord list =
         let filtered_list = (filter (\((xx, yy), _) -> x == xx && y == yy)) list in
         if ord >= 0 && ord < length filtered_list 
           then snd $ filtered_list !! ord
           else default_chip
   in
-  fst $ foldl (\(str, (hord, vord)) chr -> let [fchip, schip] = mapChipToString chr in ((str ++ get_chara (hord, vord) [fchip] 0 chara_list ++ get_chara (hord, vord) [schip] 1 chara_list ++ if hord == mapSize - 1 then "\n" else ""), if hord == mapSize - 1 then (0, vord+1) else (hord + 1, vord))) ("", (0, 0)) map_list
+  fst $ foldl (\(str, (hord, vord)) (chr, (i_type, m_flag, _, _)) -> let [fchip, schip] = mapChipToString chr in let schip_or_im = if m_flag > 0 then 't' else if i_type > 0 then 'o' else schip in ((str ++ get_chara (hord, vord) [fchip] 0 chara_list ++ get_chara (hord, vord) [schip_or_im] 1 chara_list ++ if hord == mapSize - 1 then "\n" else ""), if hord == mapSize - 1 then (0, vord+1) else (hord + 1, vord))) ("", (0, 0)) (zip map_list op_list)
 
 mapChipToString :: Char -> String
 mapChipToString p =
