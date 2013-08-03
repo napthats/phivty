@@ -3,10 +3,15 @@ module PhiVty.Protocol (
                        ServerProtocol(..),
                        ) where
 
+import Codec.Text.IConv
+import Data.ByteString.Lazy.Char8 (pack, unpack)
+import Codec.Binary.UTF8.String
+import Data.List.Split
 
 data ServerProtocol =
     Map (Char, String, String, [((Int, Int), String)])
   | NormalMessage String
+  | ExNotice (String, String)
   | Unfinished ServerProtocol
   | Unknown String
 
@@ -43,6 +48,9 @@ parse u_mes ('#':protocol) =
             Just x -> x
         _ ->
           Unknown protocol
+    "ex-notice" ->
+      let content_list = splitOn "=" $ snd $ splitAt 10 $ decodeString . unpack . convert "SJIS" "UTF-8" . pack $ protocol in
+      ExNotice (content_list !! 0, content_list !! 1)
     _ -> Unknown protocol
 parse _ mes =
   NormalMessage mes

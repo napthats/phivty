@@ -4,6 +4,9 @@ module PhiVty.UI
        initialPhiUI,
        runPhiUI,
        setMap,
+       setDirection,
+       setLandName,
+       setAreaName,
        setMapTitle,
        setMessage,
        addMessage,
@@ -16,14 +19,17 @@ import PhiVty.Socket
 import PhiVty.DB
 import PhiVty.Cdo
 import Data.List
+import Data.List.Split
 import Control.Monad.Trans
+import Data.IORef
 --import Control.Concurrent
 
 data UIData = UIData {
             ui_collection :: Collection,
             ui_maptext :: Widget FormattedText,
             ui_message :: Widget FormattedText,
-            ui_maptitle :: Widget FormattedText
+            ui_maptitle :: Widget FormattedText,
+            v_maptitle :: IORef (String, String, String)
             }
 
 inputHandler :: PhiSocket -> String -> IO ()
@@ -74,7 +80,8 @@ initialPhiUI soc cdod = do
   _ <- addToFocusGroup fg maptext
   c <- newCollection
   _ <- addToCollection c main_box fg
-  return $ UIData {ui_collection = c, ui_maptitle = titletest, ui_maptext = maptext, ui_message = mes_plain}
+  v_m <- newIORef ("", "", "")
+  return $ UIData {v_maptitle = v_m, ui_collection = c, ui_maptitle = titletest, ui_maptext = maptext, ui_message = mes_plain}
 
 runPhiUI :: UIData -> IO ()
 runPhiUI uidata = runUi (ui_collection uidata) defaultContext
@@ -86,6 +93,24 @@ setMap uidata str chara_list =
 setMapTitle :: UIData -> String -> IO ()
 setMapTitle uidata mes =
   schedule $ setText (ui_maptitle uidata) (T.pack $ mes)
+
+setDirection :: UIData -> String -> IO ()
+setDirection uidata dir = do
+  (_, land, area) <- readIORef $ v_maptitle uidata
+  setMapTitle uidata $ "[" ++ dir ++ "]" ++ land ++ "(" ++ area ++ ")"
+  writeIORef (v_maptitle uidata) (dir, land, area)
+
+setLandName :: UIData -> String -> IO ()
+setLandName uidata land = do
+  (dir, _, area) <- readIORef $ v_maptitle uidata
+  setMapTitle uidata $ "[" ++ dir ++ "]" ++ land ++ "(" ++ area ++ ")"
+  writeIORef (v_maptitle uidata) (dir, land, area)
+  
+setAreaName :: UIData -> String -> IO ()
+setAreaName uidata area = do
+  (dir, land, _) <- readIORef $ v_maptitle uidata
+  setMapTitle uidata $ "[" ++ dir ++ "]" ++ land ++ "(" ++ area ++ ")"
+  writeIORef (v_maptitle uidata) (dir, land, area)
 
 setMessage :: UIData -> String -> IO ()
 setMessage uidata str =

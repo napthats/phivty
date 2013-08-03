@@ -58,9 +58,9 @@ main = do
               let n_mes = decodeString . unpack . convert "SJIS" "UTF-8" . pack $ n_mes_raw
               addMessage uidata c n_mes
               loop Nothing
-            Map (m_title, m_chip_string, m_op_string, chara_list) -> do
+            Map (m_dir, m_chip_string, m_op_string, chara_list) -> do
               setMap uidata m_chip_string chara_list
-              setMapTitle uidata [m_title]
+              setDirection uidata [m_dir]
 --              cdo c $ do
 --                old_mes_list <- getMessageLog
 --                let new_mes_list = (concat (map show (map ord m_op_string))) : old_mes_list
@@ -68,6 +68,15 @@ main = do
 --                setMessageLog new_mes_list
               loop Nothing
             Unfinished u -> loop $ Just u
+            ExNotice (key, value) ->
+              case key of
+                "land" -> do
+                  setLandName uidata value
+                  loop Nothing
+                "area" -> do
+                  setAreaName uidata value
+                  loop Nothing
+                _ -> loop Nothing
             Unknown mes -> do
               addMessage uidata c $ '#' : mes
               loop Nothing
