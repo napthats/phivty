@@ -53,6 +53,7 @@ initialPhiUI soc cdod = do
   e `onActivate` \this -> do
     txt <- getEditText this
     inputHandler soc $ T.unpack txt
+    setEditText this $ T.pack ""
   mes_plain <- plainText (T.pack "hi")
   mes <- centered mes_plain
   maptext <- plainText (T.pack $ makeMapString initialMapList [((3, 3), "m")])
