@@ -10,11 +10,13 @@ module PhiVty.UI
        setMapTitle,
        setMessage,
        addMessage,
+       parsePhiTags,
        ) where
 
 import Graphics.Vty.Widgets.All
 import qualified Data.Text as T
 import Graphics.Vty.LLInput
+import Graphics.Vty.Attributes
 import PhiVty.Socket
 import PhiVty.DB
 import PhiVty.Cdo
@@ -22,6 +24,7 @@ import Data.List
 import Data.List.Split
 import Control.Monad.Trans
 import Data.IORef
+import Text.Regex
 --import Control.Concurrent
 
 data UIData = UIData {
@@ -110,15 +113,46 @@ setAreaName uidata area = do
   setMapTitle uidata $ "[" ++ dir ++ "]" ++ land ++ "(" ++ area ++ ")"
   writeIORef (v_maptitle uidata) (dir, land, area)
 
-setMessage :: UIData -> String -> IO ()
-setMessage uidata str =
-  schedule $ setText (ui_message uidata) (T.pack $ str)
+setMessage :: UIData -> [String] -> IO ()
+setMessage uidata str_list = do
+--  schedule $ setText (ui_message uidata) (T.pack $ intercalate "\n" $ str_list)
+  schedule $ setTextWithAttrs (ui_message uidata) (concatMap parsePhiTags str_list)
+--  schedule $ setTextWithAttrs (ui_message uidata) [((T.pack $ str), fgColor green)]
+
+parsePhiTags :: String -> [(T.Text, Attr)]
+parsePhiTags str = _parse def_attr str
+  where _parse attr str =
+          let tag2Attr tag =
+               case splitOn "=" (drop 2 $ take (length tag - 2) tag) of
+                 ["color", color] ->
+                   case color of
+                     "black" -> fgColor black
+                     "red" -> fgColor red
+                     "green" -> fgColor green
+                     "yellow" -> fgColor yellow
+                     "blue" -> fgColor blue
+                     "magenta" -> fgColor magenta
+                     "cyan" -> fgColor cyan
+                     "white" -> fgColor white
+                     "+hp" -> fgColor green
+                     "+mp" -> fgColor blue
+                     "-hp" -> fgColor red
+                     "-mp" -> fgColor red
+                     "." -> fgColor white
+                     _ -> def_attr
+                 _ -> def_attr
+               in
+          case matchRegexAll (mkRegex "/[*][^*]*[*]/") str of
+            Nothing -> [(T.pack (str ++ "\n"), attr)]
+            Just (before_str, tag, after_str, _) -> (T.pack before_str, attr) : (_parse (tag2Attr tag) after_str)
+
+
 
 addMessage :: UIData -> (Cdo (DB IO ())) -> String -> IO ()
 addMessage uidata c mes = cdo c $ do
   old_mes_list <- getMessageLog
   let new_mes_list = mes : old_mes_list
-  lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
+  lift $ setMessage uidata $ reverse new_mes_list
   setMessageLog $ fst $ splitAt 50 new_mes_list
 
 initialMapList :: String
