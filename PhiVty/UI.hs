@@ -13,7 +13,7 @@ import Graphics.Vty.LLInput
 import PhiVty.Socket
 import PhiVty.DB
 import PhiVty.Cdo
-import Control.Concurrent
+--import Control.Concurrent
 
 data UIData = UIData {
             ui_collection :: Collection,
@@ -25,9 +25,20 @@ inputHandler :: PhiSocket -> String -> IO ()
 inputHandler soc mes =
   if mes == ":exit" then error "exit" else send mes soc
 
-mapHandler :: (Monad m) => Key -> [Modifier] -> Cdo (DB m ()) -> IO ()
-mapHandler key modList cdod =
+mapHandler :: (Monad m) => PhiSocket -> Key -> [Modifier] -> Cdo (DB m ()) -> IO ()
+mapHandler soc key modList cdod =
   case key of
+    KASCII '1' -> send "hit" soc
+    KASCII '2' -> send "go b" soc
+    KASCII '3' -> send "cast" soc
+    KASCII '4' -> send "go l" soc
+    KASCII '5' -> send "turn b" soc
+    KASCII '6' -> send "go r" soc
+    KASCII '7' -> send "turn l" soc
+    KASCII '8' -> send "go" soc
+    KASCII '9' -> send "turn r" soc
+    KASCII '0' -> do {send "look" soc; send "check" soc}
+    KASCII '.' -> send "." soc
     KASCII c -> do
       cdo cdod $ do
         old_mes_list <- getMessageLog
@@ -45,7 +56,7 @@ initialPhiUI soc cdod = do
   mes_plain <- plainText (T.pack "hi")
   mes <- centered mes_plain
   maptext <- plainText (T.pack $ makeMapString initialMapList [((3, 3), "m")])
-  maptext `onKeyPressed` \_ key mod_list -> do {mapHandler key mod_list cdod; return True}
+  maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list cdod; return True}
   mp <- bordered maptext >>= centered
   main_box <- (return mp <++> return mes) <--> (return e)
   fg <- newFocusGroup
