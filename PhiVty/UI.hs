@@ -68,12 +68,10 @@ initialPhiUI soc cdod = do
   mes_plain <- plainText (T.pack "hi")
   mes <- centered mes_plain
   titletest <- plainText (T.pack " ")
---  title <- centered titletest
-  let title = titletest
+  title <- hCentered titletest
   maptext <- plainText (T.pack $ makeMapString initialMapList [((3, 3), "m")])
   maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list cdod; return True}
---  mp <- bordered maptext >>= centered
-  mp <- bordered maptext
+  mp <- bordered maptext >>= hCentered
   main_box <- (((return title <--> return mp) >>= centered) <++> return mes) <--> (return e)
   fg <- newFocusGroup
   _ <- addToFocusGroup fg e
