@@ -4,7 +4,8 @@ module PhiVty.UI
        initialPhiUI,
        runPhiUI,
        setMap,
-       setMessage
+       setMessage,
+       addMessage,
        ) where
 
 import Graphics.Vty.Widgets.All
@@ -13,6 +14,8 @@ import Graphics.Vty.LLInput
 import PhiVty.Socket
 import PhiVty.DB
 import PhiVty.Cdo
+import Data.List
+import Control.Monad.Trans
 --import Control.Concurrent
 
 data UIData = UIData {
@@ -77,6 +80,13 @@ setMap uidata str chara_list =
 setMessage :: UIData -> String -> IO ()
 setMessage uidata str =
   schedule $ setText (ui_message uidata) (T.pack $ str)
+
+addMessage :: UIData -> (Cdo (DB IO ())) -> String -> IO ()
+addMessage uidata c mes = cdo c $ do
+  old_mes_list <- getMessageLog
+  let new_mes_list = mes : old_mes_list
+  lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
+  setMessageLog $ fst $ splitAt 50 new_mes_list
 
 initialMapList :: String
 initialMapList = "????????>% o=??#|{I@??    H??_T:+/??_:::H????????"

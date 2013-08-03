@@ -56,11 +56,7 @@ main = do
           case parse u_mes new_mes of
             NormalMessage n_mes_raw -> do
               let n_mes = decodeString . unpack . convert "SJIS" "UTF-8" . pack $ n_mes_raw
-              cdo c $ do
-                old_mes_list <- getMessageLog
-                let new_mes_list = n_mes : old_mes_list
-                lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
-                setMessageLog $ fst $ splitAt 50 new_mes_list
+              addMessage uidata c n_mes
               loop Nothing
             Map (m_chip_string, m_op_string, chara_list) -> do
               setMap uidata m_chip_string chara_list
@@ -72,11 +68,7 @@ main = do
               loop Nothing
             Unfinished u -> loop $ Just u
             Unknown mes -> do
-              cdo c $ do
-                old_mes_list <- getMessageLog
-                let new_mes_list = (':' : mes) : old_mes_list
-                lift $ setMessage uidata $ intercalate "\n" $ reverse new_mes_list
-                setMessageLog $ fst $ splitAt 50 new_mes_list
+              addMessage uidata c $ ':' : mes
               loop Nothing
     loop Nothing
   runPhiUI uidata
