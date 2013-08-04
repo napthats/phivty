@@ -102,13 +102,15 @@ initialPhiUI soc cdod = do
     inputHandler soc $ T.unpack txt
     setEditText this $ T.pack ""
   mes_plain <- plainText (T.pack "hi")
-  mes <- centered mes_plain
+  let mes = mes_plain
   titletest <- plainText (T.pack " ")
   title <- hCentered titletest
   maptext <- plainText (T.pack $ makeMapString initialMapList initialMapOptionList [((3, 3), "m")])
   maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list cdod; return True}
   mp <- bordered maptext >>= hCentered
-  main_box <- (((return title <--> return mp) >>= centered) <++> return mes) <--> (return e)
+  upper_box <- (((return title <--> return mp) >>= centered) <++> return mes)
+  setBoxChildSizePolicy upper_box $ Percentage 40
+  main_box <- (return upper_box) <--> (return e)
   fg <- newFocusGroup
   _ <- addToFocusGroup fg e
   _ <- addToFocusGroup fg maptext
