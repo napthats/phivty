@@ -41,17 +41,27 @@ inputHandler soc mes =
 mapHandler :: (Monad m) => PhiSocket -> Key -> [Modifier] -> Cdo (DB m ()) -> IO ()
 mapHandler soc key [] _ =
   case key of
-    KASCII '1' -> send "hit" soc
-    KASCII '2' -> send "go b" soc
-    KASCII '3' -> send "cast" soc
-    KASCII '4' -> send "go l" soc
-    KASCII '5' -> send "turn b" soc
-    KASCII '6' -> send "go r" soc
-    KASCII '7' -> send "turn l" soc
-    KASCII '8' -> send "go" soc
-    KASCII '9' -> send "turn r" soc
-    KASCII '0' -> do {send "look" soc; send "check" soc}
+    KEnd -> send "hit" soc
+    KDown -> send "go b" soc
+    KPageDown -> send "cast" soc
+    KLeft -> send "go l" soc
+    KBegin -> send "turn b" soc
+    KRight -> send "go r" soc
+    KHome -> send "turn l" soc
+    KUp -> send "go" soc
+    KPageUp -> send "turn r" soc
+    KIns -> do {send "look" soc; send "check" soc}
     KASCII '.' -> send "." soc
+    KASCII '1' -> send "1" soc
+    KASCII '2' -> send "2" soc
+    KASCII '3' -> send "3" soc
+    KASCII '4' -> send "4" soc
+    KASCII '5' -> send "5" soc
+    KASCII '6' -> send "6" soc
+    KASCII '7' -> send "7" soc
+    KASCII '8' -> send "8" soc
+    KASCII '9' -> send "9" soc
+    KASCII '0' -> send "0" soc
     KASCII 'z' -> send "get" soc
     KASCII 'c' -> send "use" soc
     KASCII 'x' -> send "put" soc
