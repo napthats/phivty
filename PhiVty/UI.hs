@@ -39,7 +39,7 @@ inputHandler soc mes =
   if mes == ":exit" then error "exit" else send mes soc
 
 mapHandler :: (Monad m) => PhiSocket -> Key -> [Modifier] -> Cdo (DB m ()) -> IO ()
-mapHandler soc key _ cdod =
+mapHandler soc key [] _ =
   case key of
     KASCII '1' -> send "hit" soc
     KASCII '2' -> send "go b" soc
@@ -52,12 +52,36 @@ mapHandler soc key _ cdod =
     KASCII '9' -> send "turn r" soc
     KASCII '0' -> do {send "look" soc; send "check" soc}
     KASCII '.' -> send "." soc
-    KASCII c -> do
-      cdo cdod $ do
-        old_mes_list <- getMessageLog
-        let new_mes_list = (":Input " ++ [c]) : old_mes_list
-        setMessageLog new_mes_list
-    _ -> error "????"
+    KASCII 'z' -> send "get" soc
+    KASCII 'c' -> send "use" soc
+    KASCII 'x' -> send "put" soc
+    KASCII 'q' -> send "equip" soc
+    KASCII 'w' -> send "unequip" soc
+    KASCII 'v' -> send "sort" soc
+    KASCII 'a' -> send "read" soc
+    KASCII 's' -> send "write" soc
+    KASCII 'f' -> send "floor item" soc
+    KASCII 'b' -> send "board" soc
+    KASCII 'd' -> send "erace" soc
+    KASCII 'g' -> send "guard" soc
+    KASCII 'h' -> send "hi" soc
+    KASCII 'y' -> send "y" soc
+    KASCII _ -> return ()
+    _ -> return ()
+mapHandler soc key mod_list _ =
+  if elem MMeta mod_list || elem MAlt mod_list
+  then case key of
+        KASCII 'w' -> do {send "cast" soc; send "wizard eye" soc}
+        KASCII 'e' -> do {send "cast" soc; send "eagle eye" soc}
+        KASCII 'a' -> do {send "cast" soc; send "analyze" soc}
+        KASCII 'c' -> do {send "cast" soc; send "create" soc}
+        KASCII 'i' -> do {send "cast" soc; send "identify" soc}
+        KASCII 'l' -> do {send "cast" soc; send "wizard lock" soc}
+        KASCII 'u' -> do {send "cast" soc; send "unlock" soc}
+        KASCII 's' -> do {send "cast" soc; send "search" soc}
+        KASCII _ -> return ()
+        _ -> return ()
+  else return ()
 
 initialPhiUI :: (Monad m) => PhiSocket -> Cdo (DB m ()) -> IO UIData
 initialPhiUI soc cdod = do
