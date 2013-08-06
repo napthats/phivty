@@ -51,6 +51,7 @@ mapHandler soc key [] _ =
     KUp -> send "go" soc
     KPageUp -> send "turn r" soc
     KIns -> do {send "look" soc; send "check" soc}
+    KDel -> send "." soc
     KASCII '.' -> send "." soc
     KASCII '1' -> send "1" soc
     KASCII '2' -> send "2" soc
