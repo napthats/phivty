@@ -15,6 +15,7 @@ data ServerProtocol =
   | NormalMessage String
   | ExNotice (String, String)
   | PhiList [String]
+  | SEdit
   | Unfinished ServerProtocol
   | Unknown String
 
@@ -51,14 +52,20 @@ parse u_mes ('#':protocol) =
         '.' ->
           case u_mes of
             Nothing -> Unknown ""
-            Just x -> x
+            Just (Map x) -> Map x
+            _ -> Unknown ""
         _ ->
           Unknown protocol
     "ex-notice" ->
       let content_list = splitOn "=" $ snd $ splitAt 10 $ decodeString . unpack . convert "SJIS" "UTF-8" . pack $ protocol in
       ExNotice (content_list !! 0, content_list !! 1)
+    "list" -> Unfinished $ PhiList []
+    "end-list" -> case u_mes of
+                   Nothing -> Unknown ""
+                   Just (PhiList x) -> PhiList x
+                   _ -> Unknown ""
+    "s-edit" -> SEdit
     _ -> Unknown protocol
+parse (Just (PhiList list)) mes = Unfinished $ PhiList $ list ++ [mes]
 parse _ mes =
   NormalMessage mes
-
-

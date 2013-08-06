@@ -6,6 +6,8 @@ module PhiVty.DB (
                  getRandomInt,
                  getMessageLog,
                  setMessageLog,
+                 getPrevList,
+                 setPrevList,
                  DB(),
                  DBData(),
           ) where
@@ -49,7 +51,8 @@ type DBContext s = STRef s DBData
 data DBData = DBData {
   db_randomgen :: StdGen,
   db_messagelist :: [String],
-  db_phimessagelog :: [String]
+  db_phimessagelog :: [String],
+  db_prevphilist :: [String]
 }
 
 getMessageLog :: Monad m => DB m [String]
@@ -59,6 +62,14 @@ getMessageLog =
 setMessageLog :: Monad m => [String] -> DB m ()
 setMessageLog mes_list =
   DB $ \st -> modifySTRef st (\db_data -> db_data {db_phimessagelog = mes_list})
+
+getPrevList :: Monad m => DB m [String]
+getPrevList =
+  DB $ \st -> readSTRef st >>= (\x -> return $ db_prevphilist x)
+
+setPrevList :: Monad m => [String] -> DB m ()
+setPrevList mes_list =
+  DB $ \st -> modifySTRef st (\db_data -> db_data {db_prevphilist = mes_list})
 
 getRandomInt :: Monad m => DB m Int
 getRandomInt =
@@ -72,4 +83,6 @@ initialDB :: Int -> DBData
 initialDB random_gen = DBData {
   db_randomgen = mkStdGen random_gen,
   db_messagelist = [],
-  db_phimessagelog = []}
+  db_phimessagelog = [],
+  db_prevphilist = []
+}

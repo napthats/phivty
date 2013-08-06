@@ -2,6 +2,7 @@ import PhiVty.UI
 import PhiVty.DB
 import PhiVty.Socket
 import PhiVty.Protocol
+import Control.Monad.Trans
 import Control.Concurrent
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM
@@ -45,27 +46,31 @@ main = do
     send "#ex-switch ex-disp-magic=false" soc
     let loop u_mes = do
           new_mes <- atomically $ readTChan tchan
-          case parse u_mes new_mes of
+          do {case parse u_mes new_mes of
             NormalMessage n_mes_raw -> do
               let n_mes = decodeString . unpack . convert "SJIS" "UTF-8" . pack $ n_mes_raw
               addMessage uidata c n_mes
-              loop Nothing
             Map (m_dir, m_chip_string, m_op_string, chara_list) -> do
               setMap uidata m_chip_string m_op_string chara_list
               setDirection uidata [m_dir]
-              loop Nothing
-            Unfinished u -> loop $ Just u
             ExNotice (key, value) ->
               case key of
                 "land" -> do
                   setLandName uidata value
-                  loop Nothing
                 "area" -> do
                   setAreaName uidata value
-                  loop Nothing
-                _ -> loop Nothing
+                _ -> return ()
+            PhiList list -> cdo c $ do
+              setPrevList list
+              lift $ mapM_ (addMessage uidata c) $ "---------------" : list ++ ["---------------"]
+            SEdit -> cdo c $ do
+              list <- getPrevList
+              lift $ mapM_ (addMessage uidata c) $ "---------------" : list ++ ["---------------"]
+            Unfinished u -> loop $ Just u
+            Unknown "" -> return ()
             Unknown mes -> do
               addMessage uidata c $ '#' : mes
-              loop Nothing
+          }
+          loop Nothing
     loop Nothing
   runPhiUI uidata
