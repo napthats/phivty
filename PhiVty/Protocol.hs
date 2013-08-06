@@ -14,6 +14,7 @@ data ServerProtocol =
     Map (Char, String, [(Int, Int, Int, Int)], [((Int, Int), String)])
   | NormalMessage String
   | ExNotice (String, String)
+  | PhiList [String]
   | Unfinished ServerProtocol
   | Unknown String
 
@@ -28,7 +29,7 @@ parse u_mes ('#':protocol) =
           let chara_list = case u_mes of
                              Nothing -> []
                              Just (Map (_, _, _, l)) -> l
-                             _ -> error "Invalid server protocol." in
+                             _ -> [] in
           let (_, map_str) = splitAt 17 protocol in
           let parseOption op =
                ((shiftR op 4) .&. 7, (shiftR op 3) .&. 1, (shiftR op 2) .&. 1, op .&. 1) in
@@ -41,7 +42,7 @@ parse u_mes ('#':protocol) =
           let (dir, ma, op, chara_list) = case u_mes of
                                         Nothing -> (' ', "", [], [])
                                         Just (Map (d, m, o, l)) -> (d, m, o, l)
-                                        _ -> error "Invalid server protocol." in
+                                        _ -> (' ', "", [], []) in
           let initial_raw = protocol !! 18 in
           let initial = if ord initial_raw > 32 && ord initial_raw < 127 then initial_raw else 'A' in
           let x = (read [protocol !! 12] :: Int) in
@@ -49,7 +50,7 @@ parse u_mes ('#':protocol) =
           Unfinished (Map (dir, ma, op, ((x, y), [initial]) : chara_list))
         '.' ->
           case u_mes of
-            Nothing -> error "Invalid server protocol."
+            Nothing -> Unknown ""
             Just x -> x
         _ ->
           Unknown protocol
