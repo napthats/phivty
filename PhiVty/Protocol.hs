@@ -57,7 +57,7 @@ parse u_mes ('#':protocol) =
         _ ->
           Unknown protocol
     "ex-notice" ->
-      let content_list = splitOn "=" $ snd $ splitAt 10 $ decodeString . unpack . convert "SJIS" "UTF-8" . pack $ protocol in
+      let content_list = splitOn "=" $ snd $ splitAt 10 $ phiDecode protocol in
       ExNotice (content_list !! 0, content_list !! 1)
     "list" -> Unfinished $ PhiList []
     "end-list" -> case u_mes of
@@ -66,6 +66,9 @@ parse u_mes ('#':protocol) =
                    _ -> Unknown ""
     "s-edit" -> SEdit
     _ -> Unknown protocol
-parse (Just (PhiList list)) mes = Unfinished $ PhiList $ list ++ [mes]
+parse (Just (PhiList list)) mes = Unfinished $ PhiList $ list ++ [phiDecode mes]
 parse _ mes =
-  NormalMessage mes
+  NormalMessage $ phiDecode mes
+
+phiDecode :: String -> String
+phiDecode = decodeString . unpack . convert "SJIS" "UTF-8" . pack
