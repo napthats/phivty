@@ -60,7 +60,8 @@ main = do
                 _ -> return ()
             PhiList list -> cdo c $ do
               setPrevList list
-              lift $ mapM_ (addMessage uidata c) $ "---------------" : list ++ ["---------------"]
+              lift $ mapM_ (addMessage uidata c) $ "---------------" :
+                snd (foldl (\(ord, acc) elm -> (ord+1, (acc ++ [("(" ++ show ord ++ ")" ++ elm)]))) (1 :: Integer, []) list) ++ ["---------------"]
             SEdit -> cdo c $ do
               setUIState UISEdit
             Unfinished u -> loop $ Just u
