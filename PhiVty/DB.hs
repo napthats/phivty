@@ -8,6 +8,8 @@ module PhiVty.DB (
                  setMessageLog,
                  getPrevList,
                  setPrevList,
+                 getUIState,
+                 setUIState,
                  DB(),
                  DBData(),
           ) where
@@ -16,6 +18,7 @@ module PhiVty.DB (
 import Control.Monad.ST.Trans
 import Control.Monad.State
 import System.Random
+import PhiVty.Data.UI
 
 
 modifySTRef :: Monad m => STRef s a -> (a -> a) -> STT s m ()
@@ -52,7 +55,8 @@ data DBData = DBData {
   db_randomgen :: StdGen,
   db_messagelist :: [String],
   db_phimessagelog :: [String],
-  db_prevphilist :: [String]
+  db_prevphilist :: [String],
+  db_uistate :: UIState
 }
 
 getMessageLog :: Monad m => DB m [String]
@@ -71,6 +75,14 @@ setPrevList :: Monad m => [String] -> DB m ()
 setPrevList mes_list =
   DB $ \st -> modifySTRef st (\db_data -> db_data {db_prevphilist = mes_list})
 
+getUIState :: Monad m => DB m UIState
+getUIState =
+  DB $ \st -> readSTRef st >>= (\x -> return $ db_uistate x)
+
+setUIState :: Monad m => UIState -> DB m ()
+setUIState ui_state =
+  DB $ \st -> modifySTRef st (\db_data -> db_data {db_uistate = ui_state})
+
 getRandomInt :: Monad m => DB m Int
 getRandomInt =
   DB $ \st -> do
@@ -84,5 +96,6 @@ initialDB random_gen = DBData {
   db_randomgen = mkStdGen random_gen,
   db_messagelist = [],
   db_phimessagelog = [],
-  db_prevphilist = []
+  db_prevphilist = [],
+  db_uistate = UINormal
 }

@@ -24,6 +24,7 @@ import Data.List.Split
 import Control.Monad.Trans
 import Data.IORef
 import Text.Regex
+import PhiVty.Data.UI
 --import Control.Concurrent
 
 data UIData = UIData {
@@ -38,8 +39,14 @@ inputHandler :: PhiSocket -> String -> IO ()
 inputHandler soc mes =
   if mes == ":exit" then error "exit" else send mes soc
 
-mapHandler :: (Monad m) => PhiSocket -> Key -> [Modifier] -> Cdo (DB m ()) -> IO ()
-mapHandler soc key [] _ =
+mapHandler :: PhiSocket -> Key -> [Modifier] -> Cdo (DB IO ()) -> IO ()
+mapHandler soc key mod_list c = cdo c $ do
+  ui_state <- getUIState
+  lift $ _mapHandler ui_state soc key mod_list c
+  setUIState UINormal
+
+_mapHandler :: UIState -> PhiSocket -> Key -> [Modifier] -> Cdo (DB IO ()) -> IO ()
+_mapHandler UINormal soc key [] _ =
   case key of
     KEnd -> send "hit" soc
     KDown -> send "go b" soc
@@ -79,7 +86,7 @@ mapHandler soc key [] _ =
     KASCII 'y' -> send "y" soc
     KASCII _ -> return ()
     _ -> return ()
-mapHandler soc key mod_list _ =
+_mapHandler UINormal soc key mod_list _ =
   if elem MMeta mod_list || elem MAlt mod_list
   then case key of
         KASCII 'w' -> do {send "cast" soc; send "wizard eye" soc}
@@ -93,8 +100,30 @@ mapHandler soc key mod_list _ =
         KASCII _ -> return ()
         _ -> return ()
   else return ()
+_mapHandler UISEdit soc key [] c = cdo c $ do
+  prev_philist <- getPrevList
+  let first_ord = getFirstOrd prev_philist
+  lift $ do {case key of
+    KASCII '1' -> send (show first_ord) soc
+    KASCII '2' -> send (show $ first_ord + 1) soc
+    KASCII '3' -> send (show $ first_ord + 2) soc
+    KASCII '4' -> send (show $ first_ord + 3) soc
+    KASCII '5' -> send (show $ first_ord + 4) soc
+    KASCII '6' -> send (show $ first_ord + 5) soc
+    KASCII '7' -> send (show $ first_ord + 6) soc
+    KASCII '8' -> send (show $ first_ord + 7) soc
+    KASCII '9' -> send (show $ first_ord + 8) soc
+    _ -> _mapHandler UINormal soc key [] c}
+  return ()
+  where getFirstOrd philist =
+          case philist of
+            [] -> 1
+            fst_elem : _ ->
+             (read (dropWhile (\x -> x == '[' || x == ' ')  $ takeWhile ((/=) ']') fst_elem) :: Int) 
+_mapHandler UISEdit soc key mod_list c = _mapHandler UINormal soc key mod_list c
+ 
 
-initialPhiUI :: (Monad m) => PhiSocket -> Cdo (DB m ()) -> IO UIData
+initialPhiUI :: PhiSocket -> Cdo (DB IO ()) -> IO UIData
 initialPhiUI soc cdod = do
   e <- editWidget
   -- tentative

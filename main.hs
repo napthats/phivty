@@ -6,11 +6,10 @@ import Control.Monad.Trans
 import Control.Concurrent
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM
-import Codec.Text.IConv
-import Data.ByteString.Lazy.Char8 (pack, unpack)
-import Codec.Binary.UTF8.String
 import PhiVty.Cdo
 import System.Environment
+import PhiVty.Data.UI
+
 
 
 main :: IO ()
@@ -47,8 +46,7 @@ main = do
     let loop u_mes = do
           new_mes <- atomically $ readTChan tchan
           do {case parse u_mes new_mes of
-            NormalMessage n_mes_raw -> do
-              let n_mes = decodeString . unpack . convert "SJIS" "UTF-8" . pack $ n_mes_raw
+            NormalMessage n_mes -> do
               addMessage uidata c n_mes
             Map (m_dir, m_chip_string, m_op_string, chara_list) -> do
               setMap uidata m_chip_string m_op_string chara_list
@@ -64,8 +62,7 @@ main = do
               setPrevList list
               lift $ mapM_ (addMessage uidata c) $ "---------------" : list ++ ["---------------"]
             SEdit -> cdo c $ do
-              list <- getPrevList
-              lift $ mapM_ (addMessage uidata c) $ "---------------" : list ++ ["---------------"]
+              setUIState UISEdit
             Unfinished u -> loop $ Just u
             Unknown "" -> return ()
             Unknown mes -> do
