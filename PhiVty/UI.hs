@@ -102,8 +102,8 @@ _mapHandler UINormal soc key mod_list c change_ct =
         KASCII 'm' -> cdo c $ do
           ct <- getCollectionType
           case ct of
-           CTNormal -> do {lift $ change_ct CTMenu; setCollectionType CTMenu}
-           CTMenu -> do {lift $ change_ct CTNormal; setCollectionType CTNormal}
+           CTNormal -> do {lift $ schedule $ change_ct CTMenu; setCollectionType CTMenu}
+           CTMenu -> do {lift $ schedule $ change_ct CTNormal; setCollectionType CTNormal}
         KASCII _ -> return ()
         _ -> return ()
   else return ()
@@ -129,7 +129,18 @@ _mapHandler UISEdit soc key [] c change_ct = cdo c $ do
              (read (dropWhile (\x -> x == '[' || x == ' ')  $ takeWhile ((/=) ']') fst_elem) :: Int) 
 _mapHandler UISEdit soc key mod_list c change_ct = _mapHandler UINormal soc key mod_list c change_ct
  
-
+menuItem :: MultiStringListData
+menuItem = MultiStringListData
+  [("1", Right $ MultiStringListData
+    [("11", Left $ return()),
+     ("12", Right $ MultiStringListData
+      [("121", Left $ return()),
+       ("122", Left $ error "122")])]),
+   ("2", Left $ error "2"),
+   ("3", Left $ return ()),
+   ("4", Right $ MultiStringListData
+    [("41", Left $ return())])]
+ 
 initialPhiUI :: PhiSocket -> Cdo (DB IO ()) -> IO UIData
 initialPhiUI soc cdod = do
   e <- editWidget
@@ -145,7 +156,7 @@ initialPhiUI soc cdod = do
   maptext <- plainText (T.pack $ makeMapString initialMapList initialMapOptionList [((3, 3), "m")])
   mp <- bordered maptext >>= hCentered
 
-  menu <- plainText "menu"
+  menu <- makeMultiStringList menuItem
   upper_left_box_wmenu <- centered menu <--> ((return title <--> return mp) >>= centered)
   setBoxChildSizePolicy upper_left_box_wmenu $ Percentage 50
   upper_box_wmenu <- (return upper_left_box_wmenu <++> return mes)
@@ -172,6 +183,47 @@ initialPhiUI soc cdod = do
         CTMenu -> ct_menu
   maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list cdod change_collection_type; return True}
   return $ UIData {v_maptitle = v_m, ui_collection = c, ui_maptitle = titletest, ui_maptext = maptext, ui_message = mes_plain}
+
+data MultiStringListData = MultiStringListData [(String, Either (IO ()) MultiStringListData)]
+
+-- Names of data must not be duplicated
+-- All spaces at head of names will be deleted
+makeMultiStringList :: MultiStringListData -> IO (Widget (List T.Text FormattedText))
+makeMultiStringList (MultiStringListData msl_data) = do
+  vty_list <- newTextList def_attr $ map (T.pack . removeSpace . fst) msl_data
+  vty_list `onItemActivated` \(ActivateItemEvent ord name _) ->
+    case getData msl_data (T.unpack name) of
+     Left io -> io
+     Right (MultiStringListData inner_data) -> do
+      maybe_next_item <- getListItem vty_list $ ord + 1
+      mapM_ (\(inner_name, _) ->
+       do
+        let level t_name = length (T.unpack t_name) - length (dropWhile ((==) ' ') (T.unpack t_name))
+        inner_widget <- plainText $ T.pack $ (replicate (level name + 1) ' ') ++ inner_name
+        let expand_list = insertIntoList vty_list (T.pack $ replicate (level name + 1) ' ' ++ inner_name) inner_widget (ord + 1)
+        let collaps_list = do{_ <- removeFromList vty_list (ord + 1); return ()}
+        case maybe_next_item of
+          Nothing -> expand_list
+          Just (next_name, _) ->
+            if level name >= level next_name
+            then expand_list
+            else collaps_list
+       ) (reverse inner_data)
+  return vty_list
+  where removeSpace str = dropWhile ((==) ' ') str
+        getData _x __name =
+         let _getData x _name =
+              case x of
+               [] -> error "Assertion Error: makeMultiStringList cannot find data."
+               (x_name, x_data) : rem_data ->
+                 if x_name == _name
+                 then x_data
+                 else case x_data of
+                       Left _ -> _getData rem_data _name
+                       Right (MultiStringListData inner_data) ->
+                         _getData (inner_data ++ rem_data) _name
+          in
+          _getData _x $ removeSpace __name
 
 runPhiUI :: UIData -> IO ()
 runPhiUI uidata = runUi (ui_collection uidata) defaultContext
