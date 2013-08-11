@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module PhiVty.UI
        (
        UIData,
@@ -130,10 +132,10 @@ initialPhiUI soc cdod = do
   e `onActivate` \this -> do
     txt <- getEditText this
     inputHandler soc $ T.unpack txt
-    setEditText this $ T.pack ""
-  mes_plain <- plainText (T.pack "hi")
+    setEditText this ""
+  mes_plain <- plainText "hi"
   let mes = mes_plain
-  titletest <- plainText (T.pack " ")
+  titletest <- plainText " "
   title <- hCentered titletest
   maptext <- plainText (T.pack $ makeMapString initialMapList initialMapOptionList [((3, 3), "m")])
   maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list cdod; return True}
