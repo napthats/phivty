@@ -41,14 +41,14 @@ inputHandler :: PhiSocket -> String -> IO ()
 inputHandler soc mes =
   if mes == ":exit" then error "exit" else send mes soc
 
-mapHandler :: PhiSocket -> Key -> [Modifier] -> Cdo (DB IO ()) -> IO ()
-mapHandler soc key mod_list c = cdo c $ do
+mapHandler :: PhiSocket -> Key -> [Modifier] -> Cdo (DB IO ()) -> (CollectionType -> IO()) -> IO ()
+mapHandler soc key mod_list c change_ct = cdo c $ do
   ui_state <- getUIState
-  lift $ _mapHandler ui_state soc key mod_list c
+  lift $ _mapHandler ui_state soc key mod_list c change_ct
   setUIState UINormal
 
-_mapHandler :: UIState -> PhiSocket -> Key -> [Modifier] -> Cdo (DB IO ()) -> IO ()
-_mapHandler UINormal soc key [] _ =
+_mapHandler :: UIState -> PhiSocket -> Key -> [Modifier] -> Cdo (DB IO ()) -> (CollectionType -> IO()) -> IO ()
+_mapHandler UINormal soc key [] _ _ =
   case key of
     KEnd -> send "hit" soc
     KDown -> send "go b" soc
@@ -88,7 +88,7 @@ _mapHandler UINormal soc key [] _ =
     KASCII 'y' -> send "y" soc
     KASCII _ -> return ()
     _ -> return ()
-_mapHandler UINormal soc key mod_list _ =
+_mapHandler UINormal soc key mod_list c change_ct =
   if elem MMeta mod_list || elem MAlt mod_list
   then case key of
         KASCII 'w' -> do {send "cast" soc; send "wizard eye" soc}
@@ -99,10 +99,15 @@ _mapHandler UINormal soc key mod_list _ =
         KASCII 'l' -> do {send "cast" soc; send "wizard lock" soc}
         KASCII 'u' -> do {send "cast" soc; send "unlock" soc}
         KASCII 's' -> do {send "cast" soc; send "search" soc}
+        KASCII 'm' -> cdo c $ do
+          ct <- getCollectionType
+          case ct of
+           CTNormal -> do {lift $ change_ct CTMenu; setCollectionType CTMenu}
+           CTMenu -> do {lift $ change_ct CTNormal; setCollectionType CTNormal}
         KASCII _ -> return ()
         _ -> return ()
   else return ()
-_mapHandler UISEdit soc key [] c = cdo c $ do
+_mapHandler UISEdit soc key [] c change_ct = cdo c $ do
   prev_philist <- getPrevList
   let first_ord = getFirstOrd prev_philist
   lift $ do {case key of
@@ -115,14 +120,14 @@ _mapHandler UISEdit soc key [] c = cdo c $ do
     KASCII '7' -> send (show $ first_ord + 6) soc
     KASCII '8' -> send (show $ first_ord + 7) soc
     KASCII '9' -> send (show $ first_ord + 8) soc
-    _ -> _mapHandler UINormal soc key [] c}
+    _ -> _mapHandler UINormal soc key [] c change_ct}
   return ()
   where getFirstOrd philist =
           case philist of
             [] -> 1
             fst_elem : _ ->
              (read (dropWhile (\x -> x == '[' || x == ' ')  $ takeWhile ((/=) ']') fst_elem) :: Int) 
-_mapHandler UISEdit soc key mod_list c = _mapHandler UINormal soc key mod_list c
+_mapHandler UISEdit soc key mod_list c change_ct = _mapHandler UINormal soc key mod_list c change_ct
  
 
 initialPhiUI :: PhiSocket -> Cdo (DB IO ()) -> IO UIData
@@ -138,8 +143,19 @@ initialPhiUI soc cdod = do
   titletest <- plainText " "
   title <- hCentered titletest
   maptext <- plainText (T.pack $ makeMapString initialMapList initialMapOptionList [((3, 3), "m")])
-  maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list cdod; return True}
   mp <- bordered maptext >>= hCentered
+
+  menu <- plainText "menu"
+  upper_left_box_wmenu <- centered menu <--> ((return title <--> return mp) >>= centered)
+  setBoxChildSizePolicy upper_left_box_wmenu $ Percentage 50
+  upper_box_wmenu <- (return upper_left_box_wmenu <++> return mes)
+  setBoxChildSizePolicy upper_box_wmenu $ Percentage 40
+  main_box_wmenu <- (return upper_box_wmenu) <--> (return e)
+  fg_wmenu <- newFocusGroup
+  _ <- addToFocusGroup fg_wmenu e
+  _ <- addToFocusGroup fg_wmenu maptext
+  _ <- addToFocusGroup fg_wmenu menu
+
   upper_box <- (((return title <--> return mp) >>= centered) <++> return mes)
   setBoxChildSizePolicy upper_box $ Percentage 40
   main_box <- (return upper_box) <--> (return e)
@@ -147,8 +163,14 @@ initialPhiUI soc cdod = do
   _ <- addToFocusGroup fg e
   _ <- addToFocusGroup fg maptext
   c <- newCollection
-  _ <- addToCollection c main_box fg
+  ct_normal <- addToCollection c main_box fg
+  ct_menu <- addToCollection c main_box_wmenu fg_wmenu
   v_m <- newIORef ("", "", "")
+  let change_collection_type ct =
+       case ct of
+        CTNormal -> ct_normal
+        CTMenu -> ct_menu
+  maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list cdod change_collection_type; return True}
   return $ UIData {v_maptitle = v_m, ui_collection = c, ui_maptitle = titletest, ui_maptext = maptext, ui_message = mes_plain}
 
 runPhiUI :: UIData -> IO ()

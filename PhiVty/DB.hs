@@ -10,6 +10,8 @@ module PhiVty.DB (
                  setPrevList,
                  getUIState,
                  setUIState,
+                 getCollectionType,
+                 setCollectionType,
                  DB(),
                  DBData(),
           ) where
@@ -56,7 +58,8 @@ data DBData = DBData {
   db_messagelist :: [String],
   db_phimessagelog :: [String],
   db_prevphilist :: [String],
-  db_uistate :: UIState
+  db_uistate :: UIState,
+  db_collectiontype :: CollectionType
 }
 
 getMessageLog :: Monad m => DB m [String]
@@ -74,6 +77,14 @@ getPrevList =
 setPrevList :: Monad m => [String] -> DB m ()
 setPrevList mes_list =
   DB $ \st -> modifySTRef st (\db_data -> db_data {db_prevphilist = mes_list})
+
+getCollectionType :: Monad m => DB m CollectionType
+getCollectionType =
+  DB $ \st -> readSTRef st >>= (\x -> return $ db_collectiontype x)
+
+setCollectionType :: Monad m => CollectionType -> DB m ()
+setCollectionType collectiontype =
+  DB $ \st -> modifySTRef st (\db_data -> db_data {db_collectiontype = collectiontype})
 
 getUIState :: Monad m => DB m UIState
 getUIState =
@@ -97,5 +108,6 @@ initialDB random_gen = DBData {
   db_messagelist = [],
   db_phimessagelog = [],
   db_prevphilist = [],
-  db_uistate = UINormal
+  db_uistate = UINormal,
+  db_collectiontype = CTNormal
 }
