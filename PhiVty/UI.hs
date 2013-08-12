@@ -146,9 +146,7 @@ makeWindowWithChara menu_item c chara_id host_name port_num collection = do
   let menu_item_innner = case menu_item of MultiStringListData list -> list
   menu <- makeMultiStringList $ MultiStringListData $ menu_item_innner ++ [
     ("Connect", Left $ do {action <- readMVar connect_action_mvar; action}),
-    ("Disconnect", Left $ do {
-      send "exit" soc;
-      close soc})]
+    ("Disconnect", Left $ send "exit" soc)]
   upper_left_box_wmenu <- centered menu <--> ((return title <--> return mp) >>= centered)
   setBoxChildSizePolicy upper_left_box_wmenu $ Percentage 50
   upper_box_wmenu <- (return upper_left_box_wmenu <++> return mes)
@@ -175,6 +173,7 @@ makeWindowWithChara menu_item c chara_id host_name port_num collection = do
   m_u_mes <- newMVar Nothing
   let recv_handler new_mes = do
        u_mes <- takeMVar m_u_mes
+       putMVar m_u_mes Nothing
        do {case parse u_mes new_mes of
          NormalMessage n_mes -> do
            addMessage uidata c n_mes
@@ -194,12 +193,12 @@ makeWindowWithChara menu_item c chara_id host_name port_num collection = do
              snd (foldl (\(ord, acc) elm -> (ord+1, (acc ++ [("(" ++ show ord ++ ")" ++ elm)]))) (1 :: Integer, []) list) ++ ["---------------"]
          SEdit -> cdo c $ do
            setUIState UISEdit
-         Unfinished u -> putMVar m_u_mes $ Just u
+         Close -> close soc
+         Unfinished u -> modifyMVar_ m_u_mes $ const $ return $ Just u
          Unknown "" -> return ()
          Unknown un_mes -> do
            addMessage uidata c $ '#' : un_mes
        }
-       _ <- tryPutMVar m_u_mes Nothing
        return ()
   putMVar connect_action_mvar $ do {
     connect soc recv_handler;

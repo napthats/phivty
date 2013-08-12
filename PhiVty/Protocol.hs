@@ -16,6 +16,7 @@ data ServerProtocol =
   | ExNotice (String, String)
   | PhiList [String]
   | SEdit
+  | Close
   | Unfinished ServerProtocol
   | Unknown String
 
@@ -65,6 +66,7 @@ parse u_mes ('#':protocol) =
                    Just (PhiList x) -> PhiList x
                    _ -> Unknown ""
     "s-edit" -> SEdit
+    "close" -> Close
     _ -> Unknown protocol
 parse (Just (PhiList list)) mes = Unfinished $ PhiList $ list ++ [phiDecode mes]
 parse _ mes =

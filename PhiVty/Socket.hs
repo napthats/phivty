@@ -46,11 +46,12 @@ connect soc recv_handler = do
 close :: PhiSocket -> IO ()
 close soc = do
   maybe_tid <- tryTakeMVar $ recvThreadId soc
+  _ <- tryTakeMVar $ internalHandle soc
   case maybe_tid of
    Nothing -> return ()
    Just tid -> do
     killThread tid
-    _ <- takeMVar (internalHandle soc)
+--    _ <- takeMVar (internalHandle soc)
     return ()
 
 send :: String -> PhiSocket -> IO ()
@@ -58,7 +59,7 @@ send mes soc = do
   maybe_handle <- tryTakeMVar $ internalHandle soc
   case maybe_handle of
    Nothing -> return ()
-   Just internal_handle -> do {
-     hPutStrLn internal_handle mes;
-     putMVar (internalHandle soc) internal_handle}
+   Just internal_handle ->
+     hPutStrLn internal_handle mes
      `catch` (\(SomeException _) -> return ())
+     `finally` putMVar (internalHandle soc) internal_handle
