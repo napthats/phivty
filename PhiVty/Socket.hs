@@ -50,8 +50,7 @@ close soc = do
    Nothing -> return ()
    Just tid -> do
     killThread tid
-    _ <- readMVar (internalHandle soc)
-    _ <- readMVar (recvThreadId soc)
+    _ <- takeMVar (internalHandle soc)
     return ()
 
 send :: String -> PhiSocket -> IO ()

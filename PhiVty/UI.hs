@@ -124,11 +124,11 @@ _mapHandler UISEdit soc key [] c change_ct = cdo c $ do
 _mapHandler UISEdit soc key mod_list c change_ct = _mapHandler UINormal soc key mod_list c change_ct
  
 makeWindowWithChara :: MultiStringListData -> Cdo (DB IO ()) -> String -> String -> Int -> Collection -> IO (IO ())
-makeWindowWithChara menuItem c chara_id host_name port_num collection = do
+makeWindowWithChara menu_item c chara_id host_name port_num collection = do
   v_m <- newIORef ("", "", "")
   titletest <- plainText " "
   maptext <- plainText (T.pack $ makeMapString initialMapList initialMapOptionList [((3, 3), "m")])
-  mes_plain <- plainText "hi"
+  mes_plain <- plainText " "
   let uidata = UIDataInternal {v_maptitle = v_m, ui_maptitle = titletest, ui_maptext = maptext, ui_message = mes_plain}
   soc <- initSocket host_name port_num
 
@@ -142,7 +142,13 @@ makeWindowWithChara menuItem c chara_id host_name port_num collection = do
   title <- hCentered titletest
   mp <- bordered maptext >>= hCentered
 
-  menu <- makeMultiStringList menuItem
+  connect_action_mvar <- newEmptyMVar
+  let menu_item_innner = case menu_item of MultiStringListData list -> list
+  menu <- makeMultiStringList $ MultiStringListData $ menu_item_innner ++ [
+    ("Connect", Left $ do {action <- readMVar connect_action_mvar; action}),
+    ("Disconnect", Left $ do {
+      send "exit" soc;
+      close soc})]
   upper_left_box_wmenu <- centered menu <--> ((return title <--> return mp) >>= centered)
   setBoxChildSizePolicy upper_left_box_wmenu $ Percentage 50
   upper_box_wmenu <- (return upper_left_box_wmenu <++> return mes)
@@ -159,8 +165,8 @@ makeWindowWithChara menuItem c chara_id host_name port_num collection = do
   fg <- newFocusGroup
   _ <- addToFocusGroup fg e
   _ <- addToFocusGroup fg maptext
-  ct_normal <- addToCollection collection main_box fg
   ct_menu <- addToCollection collection main_box_wmenu fg_wmenu
+  ct_normal <- addToCollection collection main_box fg
   let change_collection_type ct =
        case ct of
         CTNormal -> ct_normal
@@ -195,19 +201,19 @@ makeWindowWithChara menuItem c chara_id host_name port_num collection = do
        }
        _ <- tryPutMVar m_u_mes Nothing
        return ()
-  --tentative
-  connect soc recv_handler
-  send ("#open " ++ chara_id) soc
-  send "#map-iv 1" soc
-  send "#status-iv 1" soc
-  send "#version-cli 05103010" soc
-  send "#ex-switch eagleeye=form" soc
-  send "#ex-map size=57" soc
-  send "#ex-map style=turn" soc
-  send "#ex-switch ex-move-recv=true" soc
-  send "#ex-switch ex-list-mode-end=true" soc
-  send "#ex-switch ex-disp-magic=false" soc
-  --
+  putMVar connect_action_mvar $ do {
+    connect soc recv_handler;
+    send ("#open " ++ chara_id) soc;
+    send "#map-iv 1" soc;
+    send "#status-iv 1" soc;
+    send "#version-cli 05103010" soc;
+    send "#ex-switch eagleeye=form" soc;
+    send "#ex-map size=57" soc;
+    send "#ex-map style=turn" soc;
+    send "#ex-switch ex-move-recv=true" soc;
+    send "#ex-switch ex-list-mode-end=true" soc;
+    send "#ex-switch ex-disp-magic=false" soc
+  }
   return ct_menu
 
  
@@ -226,21 +232,8 @@ createMultiStringListData chara_list = do
   action_mvar_list <- mapM (\_ -> newEmptyMVar) chara_list
   let msld =
        [("Load charactor", Right $ MultiStringListData $
-         map (\((name, _, _), action_mvar) -> (name, Left $ do{action <- readMVar action_mvar; action})) (zip chara_list action_mvar_list)),
-        ("dummy", Left $ return ())]
+         map (\((name, _, _), action_mvar) -> (name, Left $ do{action <- readMVar action_mvar; action})) (zip chara_list action_mvar_list))]
   return $ (action_mvar_list, MultiStringListData msld)
-
-_menuItem :: MultiStringListData
-_menuItem = MultiStringListData
-  [("1", Right $ MultiStringListData
-    [("11", Left $ return()),
-     ("12", Right $ MultiStringListData
-      [("121", Left $ return()),
-       ("122", Left $ error "122")])]),
-   ("2", Left $ error "2"),
-   ("3", Left $ return ()),
-   ("4", Right $ MultiStringListData
-    [("41", Left $ return())])]
 
 -- Names of data must not be duplicated
 -- All spaces at head of names will be deleted
