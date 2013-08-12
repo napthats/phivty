@@ -5,14 +5,6 @@ module PhiVty.UI
        UIData,
        initialPhiUI,
        runPhiUI,
-       setMap,
-       setDirection,
-       setLandName,
-       setAreaName,
-       setMapTitle,
-       setMessage,
-       addMessage,
-       parsePhiTags,
        ) where
 
 import Graphics.Vty.Widgets.All
@@ -20,6 +12,7 @@ import qualified Data.Text as T
 import Graphics.Vty.LLInput
 import Graphics.Vty.Attributes
 import PhiVty.Socket
+import PhiVty.Protocol
 import PhiVty.DB
 import PhiVty.Cdo
 import Data.List.Split
@@ -27,15 +20,16 @@ import Control.Monad.Trans
 import Data.IORef
 import Text.Regex
 import PhiVty.Data.UI
+import Control.Concurrent
 --import Control.Concurrent
 
-data UIData = UIData {
-            ui_collection :: Collection,
+data UIDataInternal = UIDataInternal {
             ui_maptext :: Widget FormattedText,
             ui_message :: Widget FormattedText,
             ui_maptitle :: Widget FormattedText,
             v_maptitle :: IORef (String, String, String)
             }
+type UIData = Collection
 
 inputHandler :: PhiSocket -> String -> IO ()
 inputHandler soc mes =
@@ -140,20 +134,24 @@ menuItem = MultiStringListData
    ("3", Left $ return ()),
    ("4", Right $ MultiStringListData
     [("41", Left $ return())])]
- 
-initialPhiUI :: PhiSocket -> Cdo (DB IO ()) -> IO UIData
-initialPhiUI soc cdod = do
+
+makeWindowWithChara :: Cdo (DB IO ()) -> String -> String -> Int -> Collection -> IO ()
+makeWindowWithChara c chara_id host_name port_num collection = do
+  v_m <- newIORef ("", "", "")
+  titletest <- plainText " "
+  maptext <- plainText (T.pack $ makeMapString initialMapList initialMapOptionList [((3, 3), "m")])
+  mes_plain <- plainText "hi"
+  let uidata = UIDataInternal {v_maptitle = v_m, ui_maptitle = titletest, ui_maptext = maptext, ui_message = mes_plain}
+  soc <- initSocket host_name port_num
+
   e <- editWidget
   -- tentative
   e `onActivate` \this -> do
     txt <- getEditText this
     inputHandler soc $ T.unpack txt
     setEditText this ""
-  mes_plain <- plainText "hi"
   let mes = mes_plain
-  titletest <- plainText " "
   title <- hCentered titletest
-  maptext <- plainText (T.pack $ makeMapString initialMapList initialMapOptionList [((3, 3), "m")])
   mp <- bordered maptext >>= hCentered
 
   menu <- makeMultiStringList menuItem
@@ -173,16 +171,64 @@ initialPhiUI soc cdod = do
   fg <- newFocusGroup
   _ <- addToFocusGroup fg e
   _ <- addToFocusGroup fg maptext
-  c <- newCollection
-  ct_normal <- addToCollection c main_box fg
-  ct_menu <- addToCollection c main_box_wmenu fg_wmenu
-  v_m <- newIORef ("", "", "")
+  ct_normal <- addToCollection collection main_box fg
+  ct_menu <- addToCollection collection main_box_wmenu fg_wmenu
   let change_collection_type ct =
        case ct of
         CTNormal -> ct_normal
         CTMenu -> ct_menu
-  maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list cdod change_collection_type; return True}
-  return $ UIData {v_maptitle = v_m, ui_collection = c, ui_maptitle = titletest, ui_maptext = maptext, ui_message = mes_plain}
+  maptext `onKeyPressed` \_ key mod_list -> do {mapHandler soc key mod_list c change_collection_type; return True}
+  m_u_mes <- newMVar Nothing
+  let recv_handler new_mes = do
+       u_mes <- takeMVar m_u_mes
+       do {case parse u_mes new_mes of
+         NormalMessage n_mes -> do
+           addMessage uidata c n_mes
+         Map (m_dir, m_chip_string, m_op_string, chara_list) -> do
+           setMap uidata m_chip_string m_op_string chara_list
+           setDirection uidata [m_dir]
+         ExNotice (key, value) ->
+           case key of
+             "land" -> do
+               setLandName uidata value
+             "area" -> do
+               setAreaName uidata value
+             _ -> return ()
+         PhiList list -> cdo c $ do
+           setPrevList list
+           lift $ mapM_ (addMessage uidata c) $ "---------------" :
+             snd (foldl (\(ord, acc) elm -> (ord+1, (acc ++ [("(" ++ show ord ++ ")" ++ elm)]))) (1 :: Integer, []) list) ++ ["---------------"]
+         SEdit -> cdo c $ do
+           setUIState UISEdit
+         Unfinished u -> putMVar m_u_mes $ Just u
+         Unknown "" -> return ()
+         Unknown un_mes -> do
+           addMessage uidata c $ '#' : un_mes
+       }
+       _ <- tryPutMVar m_u_mes Nothing
+       return ()
+  --tentative
+  connect soc recv_handler
+  send ("#open " ++ chara_id) soc
+  send "#map-iv 1" soc
+  send "#status-iv 1" soc
+  send "#version-cli 05103010" soc
+  send "#ex-switch eagleeye=form" soc
+  send "#ex-map size=57" soc
+  send "#ex-map style=turn" soc
+  send "#ex-switch ex-move-recv=true" soc
+  send "#ex-switch ex-list-mode-end=true" soc
+  send "#ex-switch ex-disp-magic=false" soc
+  --
+  return ()
+
+ 
+initialPhiUI :: Cdo (DB IO ()) -> [(String, String, Int)] -> IO UIData
+initialPhiUI cdod [(chara_id, host_name, port_num)] = do
+  collection <- newCollection
+  makeWindowWithChara cdod chara_id host_name port_num collection
+  return collection
+initialPhiUI _ _ = error "hi"
 
 data MultiStringListData = MultiStringListData [(String, Either (IO ()) MultiStringListData)]
 
@@ -226,35 +272,35 @@ makeMultiStringList (MultiStringListData msl_data) = do
           _getData _x $ removeSpace __name
 
 runPhiUI :: UIData -> IO ()
-runPhiUI uidata = runUi (ui_collection uidata) defaultContext
+runPhiUI uidata = runUi uidata defaultContext
 
-setMap :: UIData -> String -> [(Int, Int,Int, Int)] -> [((Int, Int), String)] -> IO ()
+setMap :: UIDataInternal -> String -> [(Int, Int,Int, Int)] -> [((Int, Int), String)] -> IO ()
 setMap uidata str op_list chara_list =
   schedule $ setText (ui_maptext uidata) (T.pack $ makeMapString str op_list chara_list)
 
-setMapTitle :: UIData -> String -> IO ()
+setMapTitle :: UIDataInternal -> String -> IO ()
 setMapTitle uidata mes =
   schedule $ setText (ui_maptitle uidata) (T.pack $ mes)
 
-setDirection :: UIData -> String -> IO ()
+setDirection :: UIDataInternal -> String -> IO ()
 setDirection uidata dir = do
   (_, land, area) <- readIORef $ v_maptitle uidata
   setMapTitle uidata $ "[" ++ dir ++ "]" ++ land ++ "(" ++ area ++ ")"
   writeIORef (v_maptitle uidata) (dir, land, area)
 
-setLandName :: UIData -> String -> IO ()
+setLandName :: UIDataInternal -> String -> IO ()
 setLandName uidata land = do
   (dir, _, area) <- readIORef $ v_maptitle uidata
   setMapTitle uidata $ "[" ++ dir ++ "]" ++ land ++ "(" ++ area ++ ")"
   writeIORef (v_maptitle uidata) (dir, land, area)
   
-setAreaName :: UIData -> String -> IO ()
+setAreaName :: UIDataInternal -> String -> IO ()
 setAreaName uidata area = do
   (dir, land, _) <- readIORef $ v_maptitle uidata
   setMapTitle uidata $ "[" ++ dir ++ "]" ++ land ++ "(" ++ area ++ ")"
   writeIORef (v_maptitle uidata) (dir, land, area)
 
-setMessage :: UIData -> [String] -> IO ()
+setMessage :: UIDataInternal -> [String] -> IO ()
 setMessage uidata str_list = do
 --  schedule $ setText (ui_message uidata) (T.pack $ intercalate "\n" $ str_list)
   schedule $ setTextWithAttrs (ui_message uidata) (concatMap parsePhiTags str_list)
@@ -289,7 +335,7 @@ parsePhiTags str = _parse def_attr str
 
 
 
-addMessage :: UIData -> (Cdo (DB IO ())) -> String -> IO ()
+addMessage :: UIDataInternal -> (Cdo (DB IO ())) -> String -> IO ()
 addMessage uidata c mes = cdo c $ do
   old_mes_list <- getMessageLog
   let new_mes_list = mes : old_mes_list
