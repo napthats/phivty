@@ -123,20 +123,8 @@ _mapHandler UISEdit soc key [] c change_ct = cdo c $ do
              (read (dropWhile (\x -> x == '[' || x == ' ')  $ takeWhile ((/=) ']') fst_elem) :: Int) 
 _mapHandler UISEdit soc key mod_list c change_ct = _mapHandler UINormal soc key mod_list c change_ct
  
-menuItem :: MultiStringListData
-menuItem = MultiStringListData
-  [("1", Right $ MultiStringListData
-    [("11", Left $ return()),
-     ("12", Right $ MultiStringListData
-      [("121", Left $ return()),
-       ("122", Left $ error "122")])]),
-   ("2", Left $ error "2"),
-   ("3", Left $ return ()),
-   ("4", Right $ MultiStringListData
-    [("41", Left $ return())])]
-
-makeWindowWithChara :: Cdo (DB IO ()) -> String -> String -> Int -> Collection -> IO ()
-makeWindowWithChara c chara_id host_name port_num collection = do
+makeWindowWithChara :: MultiStringListData -> Cdo (DB IO ()) -> String -> String -> Int -> Collection -> IO (IO ())
+makeWindowWithChara menuItem c chara_id host_name port_num collection = do
   v_m <- newIORef ("", "", "")
   titletest <- plainText " "
   maptext <- plainText (T.pack $ makeMapString initialMapList initialMapOptionList [((3, 3), "m")])
@@ -220,17 +208,39 @@ makeWindowWithChara c chara_id host_name port_num collection = do
   send "#ex-switch ex-list-mode-end=true" soc
   send "#ex-switch ex-disp-magic=false" soc
   --
-  return ()
+  return ct_menu
 
  
 initialPhiUI :: Cdo (DB IO ()) -> [(String, String, Int)] -> IO UIData
-initialPhiUI cdod [(chara_id, host_name, port_num)] = do
+initialPhiUI cdod chara_list = do
+  (action_mvar_list, multi_string_list_data) <- createMultiStringListData chara_list
   collection <- newCollection
-  makeWindowWithChara cdod chara_id host_name port_num collection
+  ct_menu_action_list <- mapM (\(chara_id, host_name, port_num) -> makeWindowWithChara multi_string_list_data cdod chara_id host_name port_num collection) chara_list
+  mapM_ (\(action_mvar, ct_menu_action) -> putMVar action_mvar ct_menu_action) (zip action_mvar_list ct_menu_action_list)
   return collection
-initialPhiUI _ _ = error "hi"
 
 data MultiStringListData = MultiStringListData [(String, Either (IO ()) MultiStringListData)]
+
+createMultiStringListData :: [(String, String, Int)] -> IO([MVar (IO ())], MultiStringListData)
+createMultiStringListData chara_list = do
+  action_mvar_list <- mapM (\_ -> newEmptyMVar) chara_list
+  let msld =
+       [("Load charactor", Right $ MultiStringListData $
+         map (\((name, _, _), action_mvar) -> (name, Left $ do{action <- readMVar action_mvar; action})) (zip chara_list action_mvar_list)),
+        ("dummy", Left $ return ())]
+  return $ (action_mvar_list, MultiStringListData msld)
+
+_menuItem :: MultiStringListData
+_menuItem = MultiStringListData
+  [("1", Right $ MultiStringListData
+    [("11", Left $ return()),
+     ("12", Right $ MultiStringListData
+      [("121", Left $ return()),
+       ("122", Left $ error "122")])]),
+   ("2", Left $ error "2"),
+   ("3", Left $ return ()),
+   ("4", Right $ MultiStringListData
+    [("41", Left $ return())])]
 
 -- Names of data must not be duplicated
 -- All spaces at head of names will be deleted
