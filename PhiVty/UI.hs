@@ -93,6 +93,7 @@ _mapHandler UINormal soc key mod_list c change_ct =
         KASCII 'l' -> do {send "cast" soc; send "wizard lock" soc}
         KASCII 'u' -> do {send "cast" soc; send "unlock" soc}
         KASCII 's' -> do {send "cast" soc; send "search" soc}
+        KASCII 'd' -> do {send "cast" soc; send "detect" soc}
         KASCII 'm' -> cdo c $ do
           ct <- getCollectionType
           case ct of
