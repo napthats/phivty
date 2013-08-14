@@ -195,6 +195,7 @@ makeWindowWithChara menu_item c chara_id host_name port_num collection = do
          SEdit -> cdo c $ do
            setUIState UISEdit
          Close -> close soc
+         Lag -> send "#end-lag" soc
          Unfinished u -> modifyMVar_ m_u_mes $ const $ return $ Just u
          Unknown "" -> return ()
          Unknown un_mes -> do

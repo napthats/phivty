@@ -11,7 +11,7 @@ main = do
   if length args /= 3 then error "main ip port id" else do
   let new_dbdata = initialDB 0
   c <- newCdo
-  uidata <- initialPhiUI c [("guest4", (args !! 0), (read (args !!1) :: Int)), ((args !! 2), (args !! 0), (read (args !! 1) :: Int))]
+  uidata <- initialPhiUI c [("guest", (args !! 0), (read (args !!1) :: Int)), ((args !! 2), (args !! 0), (read (args !! 1) :: Int))]
   _ <- forkIO $ do
     let loop dbdata = do
           m <- getMonad c
